@@ -47,7 +47,7 @@ def evaluate_model(model_path: str, save_path: str, dataset_path: str = "./datas
         prompt = PROMPT_TEMPLATE.format(question=problem)
 
         # 调用模型推理
-        outputs = llm.generate([prompt], sampling_params)
+        outputs = llm.generate([prompt], sampling_params, use_tqdm=False)
         response = outputs[0].outputs[0].text.strip()
 
         # 校验

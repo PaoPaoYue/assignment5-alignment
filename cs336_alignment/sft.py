@@ -1,14 +1,14 @@
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import os
-import time
 from pathlib import Path
 
 import numpy as np
 import ray
+import ray.train 
+import ray.train.torch
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
-from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from vllm import SamplingParams
 import wandb
@@ -17,7 +17,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from cs336_basics.nn_utils import get_model_size
 from cs336_basics.optimizer import CosineAnnealingWithPrewarmRestarts
 from cs336_basics.checkpoint import save_checkpoint
-from cs336_alignment.common import R1_ZERO_OUTPUT, R1_ZERO_PROMPT, load_dataset, init_random_seed, init_wandb
+from cs336_alignment.common import R1_ZERO_OUTPUT, R1_ZERO_PROMPT, load_dataset, init_random_seed, init_wandb, mute_ray_data
 from cs336_alignment.sft_helper import *
 from cs336_alignment.eval_model import Evaluator
 
@@ -32,15 +32,17 @@ __MAJOR_METRIC_GOAL = "maximize"
 @dataclass
 class TrainParams:
     model_dir_path: str
+    train_dir_path: str
+    valid_dir_path: str
     valid_result_path: str
     checkpoint_path: str
 
-    valid_steps: list[int] = [8, 16, 32, 64] # step = count / batch_size / accumulate_steps, default counts=[128, 256, 512, 1024]
+    valid_steps: list = field(default_factory=lambda: [8, 16, 32, 64]) # step = count / batch_size / accumulate_steps, default counts=[128, 256, 512, 1024]
 
     seed: int = 42
 
     lr: float = 1e-3
-    batch_size: int = 16
+    batch_size: int = 2
     accumulate_steps: int = 1
     max_grad: float = 0
     optimizer_beta1: float = 0.9
@@ -64,9 +66,10 @@ class TrainState:
     epochs_no_improve: int = 0
 
 
-def train_model(params: dict[any, any]):
-    params = TrainParams(**params)
+def train_model(config: dict[any, any]):
+    params = TrainParams(**config)
     init_random_seed(params.seed)
+    mute_ray_data()
     state = TrainState(
         epoch=0,
         best_metric=(
@@ -75,14 +78,15 @@ def train_model(params: dict[any, any]):
         epochs_no_improve=0,
     )
 
-    train_dataset, valid_dataset = ray.train.get_dataset_shard("train"), ray.train.get_dataset_shard("valid")
+    train_dataset, valid_dataset =  load_dataset(params.train_dir_path).limit(100), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
         torch_dtype=torch.bfloat16,
         attn_implementation="flash_attention_2",
+      trust_remote_code=True,
     )
     model = ray.train.torch.prepare_model(model)
-    tokenizer = AutoTokenizer.from_pretrained(params.model_dir_path)
+    tokenizer = AutoTokenizer.from_pretrained(params.model_dir_path, trust_remote_code=True)
     optimizer = AdamW(
         model.parameters(),
         lr=params.lr,
@@ -228,8 +232,9 @@ def train_one_epoch(
             outputs = model(inputs)
             logits = outputs.logits  # (B, seq_len, vocab_size)
             probs = torch.softmax(logits, dim=-1)  # (B, seq_len, vocab_size)
-            label_log_probs = torch.gather(probs.log(), dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)  # (B, seq_len)
-            token_entropy = -torch.sum(probs * probs.log(), dim=-1) # (B, seq_len)
+            log_probs = probs.log()
+            label_log_probs = torch.gather(log_probs, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)  # (B, seq_len)
+            token_entropy = -torch.sum(probs * log_probs, dim=-1) # (B, seq_len)
             loss = masked_normalize(label_log_probs, response_mask, normalize_constant=label_log_probs.size(0) * params.accumulate_steps)
             per_token_entropy = masked_normalize(token_entropy, response_mask, normalize_constant=response_mask.sum())
 
@@ -304,7 +309,7 @@ def validate(
                 f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
             )
         )
-        return analysis
+        return {__MAJOR_METRIC_NAME: 10}
 
 
 def save_checkpoint_only_best(
@@ -335,19 +340,19 @@ def save_checkpoint_only_best(
             try:
                 old_ckpt.unlink()
             except Exception as e:
-                print(f"[WARN] Failed to delete old checkpoint: {old_ckpt} ({e})")
+                logger.warning(f"[WARN] Failed to delete old checkpoint: {old_ckpt} ({e})")
 
 if __name__ == "__main__":
     params = TrainParams(
-        model_dir_path="./models/qwen2.5-math-1.5b",
-        valid_result_path="./artifacts/results/sft-valid",
-        checkpoint_path="./artifacts/checkpoints/sft_ckpt",
+        model_dir_path= os.path.abspath("./models/qwen2.5-math-1.5b"),
+        train_dir_path= os.path.abspath("./datasets/train/math_12k/train"),
+        valid_dir_path= os.path.abspath("./datasets/eval/math"),
+        valid_result_path= os.path.abspath("./artifacts/results/sft-valid"),
+        checkpoint_path= os.path.abspath("./artifacts/checkpoints/sft_ckpt"),
     )
     trainer = ray.train.torch.TorchTrainer(
         train_model,
         train_loop_config=asdict(params),
-        datasets={"train": load_dataset("./datasets/train/math"),
-                  "valid": load_dataset("./datasets/eval/math")},
         scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.5})
     )
     trainer.fit()

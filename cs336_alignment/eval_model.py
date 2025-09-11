@@ -1,6 +1,7 @@
 import json
 import logging
 from itertools import islice
+import os
 from typing import Iterator
 
 import numpy as np
@@ -77,6 +78,7 @@ class Evaluator:
                 }
             )
         if result_path is not None:
+            os.makedirs(result_path, exist_ok=True)
             result.write_csv(result_path, min_rows_per_file=self.__RESULT_FILE_MIN_ROWS)
             json.dump(analysis, open(f"{result_path}/analysis.json", "w"))
             logger.info(

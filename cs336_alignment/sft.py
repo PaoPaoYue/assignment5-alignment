@@ -37,13 +37,13 @@ class TrainParams:
     valid_result_path: str
     checkpoint_path: str
 
-    valid_steps: list = field(default_factory=lambda: [8, 16, 32, 64]) # step = count / batch_size / accumulate_steps, default counts=[128, 256, 512, 1024]
+    valid_steps: list = field(default_factory=lambda: [32, 64, 128, 256]) # step = count / batch_size, default counts=[128, 256, 512, 1024]
 
     seed: int = 42
 
     lr: float = 1e-3
-    batch_size: int = 2
-    accumulate_steps: int = 8
+    batch_size: int = 4
+    accumulate_steps: int = 2
     max_grad: float = 0
     optimizer_beta1: float = 0.9
     optimizer_beta2: float = 0.999
@@ -141,6 +141,7 @@ def train_model(config: dict[any, any]):
             model,
             tokenizer,
             train_dataset,
+            valid_dataset,
             optimizer,
             scheduler,
             evaluator,
@@ -198,6 +199,7 @@ def train_one_epoch(
     model: nn.Module,
     tokenizer: AutoTokenizer,
     dataset: ray.data.Dataset,
+    valid_dataset: ray.data.Dataset,
     optimizer: torch.optim.Optimizer,
     scheduler: torch.optim.lr_scheduler.LRScheduler,
     evaluator: Evaluator,
@@ -261,12 +263,12 @@ def train_one_epoch(
                 }
             )
 
-        if (i + 1) // params.accumulate_steps in params.valid_steps:
+        if (i + 1) in params.valid_steps:
             validate(
                 epoch,
                 model,
                 evaluator,
-                dataset,
+                valid_dataset,
                 params,
                 step=(i + 1) // params.accumulate_steps,
                 async_no_return=True,

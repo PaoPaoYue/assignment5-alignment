@@ -46,12 +46,10 @@ class Evaluator:
         self.sampling_params = sampling_params
         self.eval_step = -1
 
-        self.__RESULT_BUFFER_SIZE = 100
         self.__RESULT_FILE_MIN_ROWS = 100
 
     def evaluate(self, ds: ray.data.Dataset, batch_size: int = 4, result_path: str=None) -> dict[str, any]:
         self.eval_step += 1
-        result = ray.data.from_items([])
         result_buffer = []
         for batch in tqdm(
             ds.iter_batches(batch_size=batch_size),
@@ -63,12 +61,9 @@ class Evaluator:
             ]
             outputs = self.llm.generate(prompts, self.sampling_params, use_tqdm=False)
             result_buffer.extend(log_generations(batch, outputs, self.sampling_params.logprobs or 0))
-            if len(result_buffer) >= self.__RESULT_BUFFER_SIZE:
-                result = result.union(ray.data.from_items(result_buffer))
-                result_buffer.clear()
 
         if result_buffer:
-            result = result.union(ray.data.from_items(result_buffer))
+            result = ray.data.from_items(result_buffer)
             result_buffer.clear()
 
         analysis = analyse_result(result)

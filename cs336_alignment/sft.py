@@ -101,7 +101,6 @@ def train_model(config: dict[any, any]):
         eta_min=params.scheduler_min_lr,
         eta_warmup_factor=params.schduler_warmup_lr_factor,
     )
-    scaler = torch.amp.GradScaler()
 
     evaluator = Evaluator.options(num_gpus=0.5).remote(
         model_path=params.model_dir_path,
@@ -144,7 +143,6 @@ def train_model(config: dict[any, any]):
             train_dataset,
             optimizer,
             scheduler,
-            scaler,
             evaluator,
             params,
         )
@@ -202,7 +200,6 @@ def train_one_epoch(
     dataset: ray.data.Dataset,
     optimizer: torch.optim.Optimizer,
     scheduler: torch.optim.lr_scheduler.LRScheduler,
-    scaler: torch.amp.GradScaler,
     evaluator: Evaluator,
     params: TrainParams,
 ) -> dict[str, float]:
@@ -227,7 +224,7 @@ def train_one_epoch(
         labels = input_tensors["labels"].to("cuda", non_blocking=True)
         response_mask = input_tensors["response_mask"].to("cuda", non_blocking=True)
 
-        with torch.amp.autocast(device_type="cuda"):
+        with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
             outputs = model(inputs)
             logits = outputs.logits  # (B, seq_len, vocab_size)
             probs = torch.softmax(logits, dim=-1)  # (B, seq_len, vocab_size)
@@ -237,13 +234,12 @@ def train_one_epoch(
             loss = masked_normalize(label_log_probs, response_mask, normalize_constant=label_log_probs.size(0) * params.accumulate_steps)
             per_token_entropy = masked_normalize(token_entropy, response_mask, normalize_constant=response_mask.sum())
 
-        scaler.scale(loss).backward()
+        loss.backward()
         if (i + 1) % params.accumulate_steps == 0:
             for p in model.parameters():
                 if p.grad is not None:
                     torch.nn.utils.clip_grad_value_(p, params.max_grad)
-            scaler.step(optimizer)
-            scaler.update()
+            optimizer.step()
             optimizer.zero_grad()
 
         scheduler.step((epoch - 1) + (i + 1) / total)

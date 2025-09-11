@@ -42,8 +42,8 @@ class TrainParams:
     seed: int = 42
 
     lr: float = 1e-3
-    batch_size: int = 1
-    accumulate_steps: int = 1
+    batch_size: int = 2
+    accumulate_steps: int = 8
     max_grad: float = 0
     optimizer_beta1: float = 0.9
     optimizer_beta2: float = 0.999
@@ -231,7 +231,7 @@ def train_one_epoch(
             log_probs = probs.log()
             label_log_probs = torch.gather(log_probs, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)  # (B, seq_len)
             token_entropy = -torch.sum(probs * log_probs, dim=-1) # (B, seq_len)
-            loss = masked_normalize(label_log_probs, response_mask, normalize_constant=label_log_probs.size(0) * params.accumulate_steps)
+            loss = masked_normalize(-label_log_probs, response_mask, normalize_constant=label_log_probs.size(0) * params.accumulate_steps)
             per_token_entropy = masked_normalize(token_entropy, response_mask, normalize_constant=response_mask.sum())
 
         loss.backward()

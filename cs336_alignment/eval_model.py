@@ -7,12 +7,14 @@ from typing import Iterator
 import numpy as np
 import ray
 import wandb
-from cs336_alignment.common import R1_ZERO_PROMPT as PROMPT_TEMPLATE, init_random_seed
-from cs336_alignment.common import mute_ray_data, load_dataset
-from cs336_alignment.drgrpo_grader import r1_zero_reward_fn
+import torch
 from tqdm import tqdm
 from vllm import LLM, RequestOutput, SamplingParams
 from vllm.model_executor import set_random_seed as vllm_set_random_seed
+
+from cs336_alignment.common import R1_ZERO_PROMPT as PROMPT_TEMPLATE, init_random_seed
+from cs336_alignment.common import mute_ray_data, load_dataset
+from cs336_alignment.drgrpo_grader import r1_zero_reward_fn
 
 logger = logging.getLogger(__name__)
 
@@ -204,12 +206,12 @@ if __name__ == "__main__":
             logprobs=10,  # 获取 top-10 logprobs
         ),
         result_csv_path="./results/eval",
-        dtype="half",
-        # dtype=torch.bfloat16,
+        # dtype="half",
+        dtype=torch.bfloat16,
         enable_prefix_caching=True,
         # gpu_memory_utilization=0.95
     )
     ds = load_dataset("./datasets/eval/math")
-    ds = ds.limit(12)
-    _, analysis = ray.get(evaluator.evaluate.remote(ds, batch_size=4, result_csv_path="./artifacts/results/eval"))
+    ds = ds.limit(32)
+    _, analysis = ray.get(evaluator.evaluate.remote(ds, batch_size=16, result_csv_path="./artifacts/results/eval"))
     logger.info(analysis)

@@ -205,7 +205,6 @@ if __name__ == "__main__":
             stop="</answer>",
             logprobs=10,  # 获取 top-10 logprobs
         ),
-        result_csv_path="./results/eval",
         # dtype="half",
         dtype=torch.bfloat16,
         enable_prefix_caching=True,
@@ -213,5 +212,5 @@ if __name__ == "__main__":
     )
     ds = load_dataset("./datasets/eval/math")
     ds = ds.limit(32)
-    _, analysis = ray.get(evaluator.evaluate.remote(ds, batch_size=16, result_csv_path="./artifacts/results/eval"))
+    _, analysis = ray.get(evaluator.evaluate.remote(ds, batch_size=16, result_path="./artifacts/results/eval"))
     logger.info(analysis)

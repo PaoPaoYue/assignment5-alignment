@@ -20,6 +20,7 @@ dependencies = [
     "vllm==0.7.2",
     "wandb>=0.19.8",
     "xopen>=2.0.2",
+    "ray[data,train]>=2.46.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -32,6 +33,7 @@ no-build-isolation-package = ["flash-attn"]
 
 [tool.uv.sources]
 alpaca-eval = { git = "https://github.com/nelson-liu/alpaca_eval.git", rev = "forward_kwargs_to_vllm" }
+cs336-basics = { path = "../assignment1-basics", editable = true }  # Change this path to your assignment1-basics repo you want to use your own implementation!
 
 [tool.pytest.ini_options]
 log_cli = true

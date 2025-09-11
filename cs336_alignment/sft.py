@@ -42,7 +42,7 @@ class TrainParams:
     seed: int = 42
 
     lr: float = 1e-3
-    batch_size: int = 4
+    batch_size: int = 1
     accumulate_steps: int = 1
     max_grad: float = 0
     optimizer_beta1: float = 0.9
@@ -85,7 +85,7 @@ def train_model(config: dict[any, any]):
         attn_implementation="flash_attention_2",
       trust_remote_code=True,
     )
-    model = model.to("cuda")
+    model = ray.train.torch.prepare_model(model)
     tokenizer = AutoTokenizer.from_pretrained(params.model_dir_path, trust_remote_code=True)
     optimizer = AdamW(
         model.parameters(),

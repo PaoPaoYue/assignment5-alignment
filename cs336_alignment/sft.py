@@ -17,7 +17,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from cs336_basics.nn_utils import get_model_size
 from cs336_basics.optimizer import CosineAnnealingWithPrewarmRestarts
 from cs336_basics.checkpoint import save_checkpoint
-from cs336_alignment.common import R1_ZERO_OUTPUT, R1_ZERO_PROMPT, load_dataset, init_random_seed, init_wandb, mute_ray_data
+from cs336_alignment.common import *
 from cs336_alignment.sft_helper import *
 from cs336_alignment.eval_model import Evaluator
 

@@ -99,7 +99,7 @@ def train_model(params: dict[any, any]):
     )
     scaler = torch.amp.GradScaler()
 
-    evaluator = Evaluator.remote(
+    evaluator = Evaluator.options(num_gpus=0.5).remote(
         model_path=params.model_dir_path,
         seed=42,
         sampling_params=SamplingParams(
@@ -348,6 +348,6 @@ if __name__ == "__main__":
         train_loop_config=asdict(params),
         datasets={"train": load_dataset("./datasets/train/math"),
                   "valid": load_dataset("./datasets/eval/math")},
-        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True)
+        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.5})
     )
     trainer.fit()

@@ -42,8 +42,8 @@ class TrainParams:
     seed: int = 42
 
     lr: float = 1e-3
-    batch_size: int = 16
-    accumulate_steps: int = 1
+    batch_size: int = 4
+    accumulate_steps: int = 4
     max_grad: float = 0
     optimizer_beta1: float = 0.9
     optimizer_beta2: float = 0.999

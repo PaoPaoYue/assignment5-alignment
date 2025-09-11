@@ -85,7 +85,7 @@ def train_model(config: dict[any, any]):
         attn_implementation="flash_attention_2",
       trust_remote_code=True,
     )
-    model = ray.train.torch.prepare_model(model)
+    model = model.to("cuda")
     tokenizer = AutoTokenizer.from_pretrained(params.model_dir_path, trust_remote_code=True)
     optimizer = AdamW(
         model.parameters(),

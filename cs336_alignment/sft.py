@@ -78,7 +78,7 @@ def train_model(config: dict[any, any]):
         epochs_no_improve=0,
     )
 
-    train_dataset, valid_dataset =  load_dataset(params.train_dir_path).limit(100), load_dataset(params.valid_dir_path)
+    train_dataset, valid_dataset =  load_dataset(params.train_dir_path).limit(512), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
         torch_dtype=torch.bfloat16,
@@ -115,7 +115,6 @@ def train_model(config: dict[any, any]):
             stop="</answer>",
             logprobs=10,
         ),
-        result_csv_path="./results/eval",
         dtype=torch.bfloat16,
         enable_prefix_caching=True,
         gpu_memory_utilization=0.95,

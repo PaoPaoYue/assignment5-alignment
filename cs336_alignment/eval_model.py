@@ -211,6 +211,5 @@ if __name__ == "__main__":
         # gpu_memory_utilization=0.95
     )
     ds = load_dataset("./datasets/eval/math")
-    ds = ds.limit(32)
     _, analysis = ray.get(evaluator.evaluate.remote(ds, batch_size=16, result_path="./artifacts/results/eval"))
     logger.info(analysis)

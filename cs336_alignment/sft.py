@@ -43,7 +43,7 @@ class TrainParams:
 
     lr: float = 1e-3
     batch_size: int = 4
-    accumulate_steps: int = 4
+    accumulate_steps: int = 1
     max_grad: float = 0
     optimizer_beta1: float = 0.9
     optimizer_beta2: float = 0.999

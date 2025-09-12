@@ -102,7 +102,7 @@ def train_model(config: dict[any, any]):
         eta_warmup_factor=params.schduler_warmup_lr_factor,
     )
 
-    evaluator = Evaluator.options(num_gpus=0.5).remote(
+    evaluator = Evaluator.remote(
         model_path=params.model_dir_path,
         seed=42,
         sampling_params=SamplingParams(

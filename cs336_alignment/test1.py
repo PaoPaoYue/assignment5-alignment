@@ -102,22 +102,23 @@ def train_model(config: dict[any, any]):
         eta_warmup_factor=params.schduler_warmup_lr_factor,
     )
 
-    evaluator = Evaluator.options(num_gpus=0.3).remote(
-        model_path=params.model_dir_path,
-        seed=42,
-        sampling_params=SamplingParams(
-            temperature=1.0,
-            top_p=1.0,
-            max_tokens=1024,
-            min_tokens=4,
-            include_stop_str_in_output=True,
-            stop="</answer>",
-            logprobs=10,
-        ),
-        dtype=torch.bfloat16,
-        enable_prefix_caching=True,
-        gpu_memory_utilization=0.5,
-    )
+    # evaluator = Evaluator.options(num_gpus=0.3).remote(
+    #     model_path=params.model_dir_path,
+    #     seed=42,
+    #     sampling_params=SamplingParams(
+    #         temperature=1.0,
+    #         top_p=1.0,
+    #         max_tokens=1024,
+    #         min_tokens=4,
+    #         include_stop_str_in_output=True,
+    #         stop="</answer>",
+    #         logprobs=10,
+    #     ),
+    #     dtype=torch.bfloat16,
+    #     enable_prefix_caching=True,
+    #     gpu_memory_utilization=0.5,
+    # )
+    evaluator = MockActor.options(num_gpus=0.5).remote()
 
     init_wandb(
         config={
@@ -164,24 +165,34 @@ def validate(
     async_no_return: bool = False,
 ) -> dict[str, float] | None:
     logger.info(f"Validating setp={step}")
-    evaluator.load_new_policy_weights.remote(model.state_dict())
-    if async_no_return:
-        evaluator.evaluate.remote(
-            dataset,
-            params.batch_size,
-            f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
-        )
-        return
-    else:
-        _, analysis = ray.get(
-            evaluator.evaluate.remote(
-                dataset,
-                params.batch_size,
-                f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
-            )
-        )
-        return {__MAJOR_METRIC_NAME: 10}
+    # evaluator.load_new_policy_weights.remote(model.state_dict())
+    # if async_no_return:
+    #     evaluator.evaluate.remote(
+    #         dataset,
+    #         params.batch_size,
+    #         f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
+    #     )
+    #     return
+    # else:
+    #     _, analysis = ray.get(
+    #         evaluator.evaluate.remote(
+    #             dataset,
+    #             params.batch_size,
+    #             f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
+    #         )
+    #     )
+    #     return {__MAJOR_METRIC_NAME: 10}
+    evaluator.evaluate.remote(model.state_dict())
 
+
+@ray.remote
+class MockActor:
+    def __init__(self):
+        pass
+
+    def evaluate(self, *args, **kwargs):
+        print(233333333333333333333333333)
+        return None
 
 if __name__ == "__main__":
     params = TrainParams(
@@ -194,6 +205,6 @@ if __name__ == "__main__":
     trainer = ray.train.torch.TorchTrainer(
         train_model,
         train_loop_config=asdict(params),
-        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.3})
+        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.5})
     )
     trainer.fit()

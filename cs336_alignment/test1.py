@@ -31,6 +31,8 @@ __MAJOR_METRIC_GOAL = "maximize"
 
 @dataclass
 class TrainParams:
+    evaluator: Evaluator
+
     model_dir_path: str
     train_dir_path: str
     valid_dir_path: str
@@ -102,22 +104,7 @@ def train_model(config: dict[any, any]):
         eta_warmup_factor=params.schduler_warmup_lr_factor,
     )
 
-    evaluator = Evaluator.remote(
-        model_path=params.model_dir_path,
-        seed=42,
-        sampling_params=SamplingParams(
-            temperature=1.0,
-            top_p=1.0,
-            max_tokens=1024,
-            min_tokens=4,
-            include_stop_str_in_output=True,
-            stop="</answer>",
-            logprobs=10,
-        ),
-        dtype=torch.bfloat16,
-        enable_prefix_caching=True,
-        gpu_memory_utilization=0.5,
-    )
+
 
     init_wandb(
         config={
@@ -140,7 +127,7 @@ def train_model(config: dict[any, any]):
         val_metrics = validate(
             epoch,
             model,
-            evaluator,
+            params.evaluator,
             valid_dataset,
             params,
             step="full",
@@ -185,6 +172,22 @@ def validate(
 
 
 if __name__ == "__main__":
+    evaluator = Evaluator.options(num_gpus=0.5).remote(
+        model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
+        seed=42,
+        sampling_params=SamplingParams(
+            temperature=1.0,
+            top_p=1.0,
+            max_tokens=1024,
+            min_tokens=4,
+            include_stop_str_in_output=True,
+            stop="</answer>",
+            logprobs=10,
+        ),
+        dtype=torch.bfloat16,
+        gpu_memory_utilization=0.5,
+    )
+
     params = TrainParams(
         model_dir_path= os.path.abspath("./models/qwen2.5-math-1.5b"),
         train_dir_path= os.path.abspath("./datasets/train/math_12k/train"),

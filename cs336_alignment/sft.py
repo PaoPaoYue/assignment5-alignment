@@ -185,7 +185,6 @@ def train_one_epoch(
     valid_dataset: ray.data.Dataset,
     optimizer: torch.optim.Optimizer,
     scheduler: torch.optim.lr_scheduler.LRScheduler,
-    evaluator: Evaluator,
     params: TrainParams,
 ) -> dict[str, float]:
     model.train()

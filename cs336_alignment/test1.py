@@ -205,5 +205,5 @@ if __name__ == "__main__":
         dtype=torch.bfloat16,
         gpu_memory_utilization=0.95,
     )
-    evaluator.load_new_policy_weights.remote(model.state_dict())
+    ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
     logger.info("Loaded model weights into evaluator")

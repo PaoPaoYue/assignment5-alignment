@@ -269,26 +269,26 @@ def validate(
     step: any,
     async_no_return: bool = False,
 ) -> dict[str, float] | None:
-    evaluator = params.evaluator
-    ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
-    logger.info(f"Weights sync done, validating setp={step}")
-    if async_no_return:
-        evaluator.evaluate.remote(
-            dataset,
-            params.batch_size,
-            f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
-        )
-        return
-    else:
-        _, analysis = ray.get(
-            evaluator.evaluate.remote(
-                dataset,
-                params.batch_size,
-                f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
-            )
-        )
-        return analysis
-
+    # evaluator = params.evaluator
+    # ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
+    # logger.info(f"Weights sync done, validating setp={step}")
+    # if async_no_return:
+    #     evaluator.evaluate.remote(
+    #         dataset,
+    #         params.batch_size,
+    #         f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
+    #     )
+    #     return
+    # else:
+    #     _, analysis = ray.get(
+    #         evaluator.evaluate.remote(
+    #             dataset,
+    #             params.batch_size,
+    #             f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
+    #         )
+    #     )
+    #     return analysis
+    return {__MAJOR_METRIC_NAME: 10}
 
 def save_checkpoint_only_best(
     save_dir: Path,

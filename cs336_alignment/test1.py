@@ -115,7 +115,6 @@ def train_model(config: dict[any, any]):
             logprobs=10,
         ),
         dtype=torch.bfloat16,
-        enable_prefix_caching=True,
         gpu_memory_utilization=0.95,
     )
 
@@ -184,16 +183,27 @@ def validate(
 
 
 if __name__ == "__main__":
-    params = TrainParams(
-        model_dir_path= os.path.abspath("./models/qwen2.5-math-1.5b"),
-        train_dir_path= os.path.abspath("./datasets/train/math_12k/train"),
-        valid_dir_path= os.path.abspath("./datasets/eval/math"),
-        valid_result_path= os.path.abspath("./artifacts/results/sft-valid"),
-        checkpoint_path= os.path.abspath("./artifacts/checkpoints/sft_ckpt"),
+    model = AutoModelForCausalLM.from_pretrained(
+        os.path.abspath("./models/qwen2.5-math-1.5b"),
+        torch_dtype=torch.bfloat16,
+        attn_implementation="flash_attention_2",
+      trust_remote_code=True,
     )
-    trainer = ray.train.torch.TorchTrainer(
-        train_model,
-        train_loop_config=asdict(params),
-        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.5})
+    model = model.to("cuda")
+    evaluator = Evaluator.options(num_gpus=0.5).remote(
+        model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
+        seed=42,
+        sampling_params=SamplingParams(
+            temperature=1.0,
+            top_p=1.0,
+            max_tokens=1024,
+            min_tokens=4,
+            include_stop_str_in_output=True,
+            stop="</answer>",
+            logprobs=10,
+        ),
+        dtype=torch.bfloat16,
+        gpu_memory_utilization=0.95,
     )
-    trainer.fit()
+    evaluator.load_new_policy_weights.remote(model.state_dict())
+    logger.info("Loaded model weights into evaluator")

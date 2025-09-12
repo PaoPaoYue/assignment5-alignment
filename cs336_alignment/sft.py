@@ -115,7 +115,7 @@ def train_model(config: dict[any, any]):
             logprobs=10,
         ),
         dtype=torch.bfloat16,
-        enable_prefix_caching=True,
+        # enable_prefix_caching=True,
         gpu_memory_utilization=0.95,
     )
 

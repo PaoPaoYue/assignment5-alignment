@@ -85,8 +85,9 @@ class Evaluator:
 
     def load_new_policy_weights(self, state_dict: dict[str, any]):
         logger.info("Evaluator loading new policy weights#############")
-        llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
-        llm_model.load_weights(state_dict.items())
+        print("Evaluator loading new policy weights#############")
+        # llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
+        # llm_model.load_weights(state_dict.items())
 
 
 def log_generations(
@@ -203,7 +204,7 @@ if __name__ == "__main__":
         ),
         # dtype="half",
         dtype=torch.bfloat16,
-        enable_prefix_caching=True,
+        # enable_prefix_caching=True,
         # gpu_memory_utilization=0.95
     )
     ds = load_dataset("./datasets/eval/math")

@@ -41,7 +41,7 @@ class TrainParams:
 
     seed: int = 42
 
-    lr: float = 1e-3
+    lr: float = 1e-4
     batch_size: int = 4
     accumulate_steps: int = 2
     max_grad: float = 0
@@ -49,7 +49,7 @@ class TrainParams:
     optimizer_beta2: float = 0.999
     optimizer_weight_decay: float = 0.01
     scheduler_t: int = 1
-    scheduler_t_warmup: float = 0.1
+    scheduler_t_warmup: float = 0
     scheduler_t_mult: int = 1
     scheduler_min_lr: float = 0
     schduler_warmup_lr_factor: float = 0
@@ -233,9 +233,9 @@ def train_one_epoch(
             log_probs = probs.log()
             label_log_probs = torch.gather(log_probs, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)  # (B, seq_len)
             token_entropy = -torch.sum(probs * log_probs, dim=-1) # (B, seq_len)
-            loss = masked_normalize(-label_log_probs, response_mask, normalize_constant=label_log_probs.size(0) * params.accumulate_steps)
+            loss = masked_normalize(-label_log_probs, response_mask, normalize_constant=response_mask.sum() * params.accumulate_steps)
             per_token_entropy = masked_normalize(token_entropy, response_mask, normalize_constant=response_mask.sum())
-
+            logger.info("loss={loss}")
         loss.backward()
         if (i + 1) % params.accumulate_steps == 0:
             for p in model.parameters():
@@ -290,6 +290,7 @@ def validate(
     step: any,
     async_no_return: bool = False,
 ) -> dict[str, float] | None:
+    logger.info("Validating setp={step}")
     evaluator.load_new_policy_weights.remote(model.state_dict())
     if async_no_return:
         evaluator.evaluate.remote(

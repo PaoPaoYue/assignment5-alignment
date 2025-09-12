@@ -196,14 +196,14 @@ if __name__ == "__main__":
         sampling_params=SamplingParams(
             temperature=1.0,
             top_p=1.0,
-            max_tokens=64,
+            max_tokens=1024,
             min_tokens=4,
             include_stop_str_in_output=True,
             stop="</answer>",
             logprobs=10,
         ),
         dtype=torch.bfloat16,
-        gpu_memory_utilization=0.95,
+        gpu_memory_utilization=0.5,
     )
     ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
     logger.info("Loaded model weights into evaluator")

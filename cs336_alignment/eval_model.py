@@ -17,7 +17,7 @@ from cs336_alignment.drgrpo_grader import r1_zero_reward_fn
 
 logger = logging.getLogger(__name__)
 
-@ray.remote(num_gpus=1, max_concurrency=1)
+@ray.remote(num_gpus=0.5)
 class Evaluator:
     def __init__(
         self,

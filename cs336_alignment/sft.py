@@ -31,6 +31,8 @@ __MAJOR_METRIC_GOAL = "maximize"
 
 @dataclass
 class TrainParams:
+    evaluator: Evaluator
+
     model_dir_path: str
     train_dir_path: str
     valid_dir_path: str
@@ -78,7 +80,7 @@ def train_model(config: dict[any, any]):
         epochs_no_improve=0,
     )
 
-    train_dataset, valid_dataset =  load_dataset(params.train_dir_path).limit(512), load_dataset(params.valid_dir_path)
+    train_dataset, valid_dataset =  load_dataset(params.train_dir_path), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
         torch_dtype=torch.bfloat16,
@@ -102,23 +104,6 @@ def train_model(config: dict[any, any]):
         eta_warmup_factor=params.schduler_warmup_lr_factor,
     )
 
-    evaluator = Evaluator.options(num_gpus=0.5).remote(
-        model_path=params.model_dir_path,
-        seed=42,
-        sampling_params=SamplingParams(
-            temperature=1.0,
-            top_p=1.0,
-            max_tokens=1024,
-            min_tokens=4,
-            include_stop_str_in_output=True,
-            stop="</answer>",
-            logprobs=10,
-        ),
-        dtype=torch.bfloat16,
-        # enable_prefix_caching=True,
-        gpu_memory_utilization=0.95,
-    )
-
     init_wandb(
         config={
             "batch_size": params.batch_size,
@@ -136,7 +121,7 @@ def train_model(config: dict[any, any]):
 
     # ========= 训练循环（含早停与最优模型保存）=========
     for epoch in range(1, params.num_epochs + 1):
-        train_metrics = train_one_epoch(
+        _ = train_one_epoch(
             epoch,
             model,
             tokenizer,
@@ -144,14 +129,12 @@ def train_model(config: dict[any, any]):
             valid_dataset,
             optimizer,
             scheduler,
-            evaluator,
             params,
         )
         
         val_metrics = validate(
             epoch,
             model,
-            evaluator,
             valid_dataset,
             params,
             step="full",
@@ -283,14 +266,14 @@ def train_one_epoch(
 def validate(
     epoch: int,
     model: nn.Module,
-    evaluator: Evaluator,
     dataset: ray.data.Dataset,
     params: TrainParams,
     step: any,
     async_no_return: bool = False,
 ) -> dict[str, float] | None:
-    logger.info(f"Validating setp={step}")
-    evaluator.load_new_policy_weights.remote(model.state_dict())
+    evaluator = params.evaluator
+    ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
+    logger.info(f"Weights sync done, validating setp={step}")
     if async_no_return:
         evaluator.evaluate.remote(
             dataset,
@@ -306,7 +289,7 @@ def validate(
                 f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
             )
         )
-        return {__MAJOR_METRIC_NAME: 10}
+        return analysis
 
 
 def save_checkpoint_only_best(
@@ -340,7 +323,24 @@ def save_checkpoint_only_best(
                 logger.warning(f"[WARN] Failed to delete old checkpoint: {old_ckpt} ({e})")
 
 if __name__ == "__main__":
+    evaluator = Evaluator.options(num_gpus=0.5).remote(
+        model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
+        seed=42,
+        sampling_params=SamplingParams(
+            temperature=1.0,
+            top_p=1.0,
+            max_tokens=1024,
+            min_tokens=4,
+            include_stop_str_in_output=True,
+            stop="</answer>",
+            logprobs=10,
+        ),
+        dtype=torch.bfloat16,
+        # enable_prefix_caching=True,
+        gpu_memory_utilization=0.5,
+    )
     params = TrainParams(
+        evaluator=evaluator,
         model_dir_path= os.path.abspath("./models/qwen2.5-math-1.5b"),
         train_dir_path= os.path.abspath("./datasets/train/math_12k/train"),
         valid_dir_path= os.path.abspath("./datasets/eval/math"),

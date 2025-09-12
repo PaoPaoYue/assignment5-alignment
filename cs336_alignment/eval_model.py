@@ -35,17 +35,17 @@ class Evaluator:
         # "vllm.worker.worker.Worker._assert_memory_footprint_increased_during_profiling",
         # return_value=None
         # )
-        self.llm = LLM(
-            model=model_path,
-            **kwargs,
-        )
-        logger.info(
-            f"Evaluator initialized on device {ray.get_gpu_ids()} with model {model_path}"
-        )
-        self.sampling_params = sampling_params
-        self.eval_step = -1
+        # self.llm = LLM(
+        #     model=model_path,
+        #     **kwargs,
+        # )
+        # logger.info(
+        #     f"Evaluator initialized on device {ray.get_gpu_ids()} with model {model_path}"
+        # )
+        # self.sampling_params = sampling_params
+        # self.eval_step = -1
 
-        self.__RESULT_FILE_MIN_ROWS = 100
+        # self.__RESULT_FILE_MIN_ROWS = 100
 
     def evaluate(self, ds: ray.data.Dataset, batch_size: int = 4, result_path: str=None) -> dict[str, any]:
         logger.info("Evaluator starting evaluation##################")

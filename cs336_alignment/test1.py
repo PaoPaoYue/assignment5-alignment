@@ -165,6 +165,7 @@ def validate(
 ) -> dict[str, float] | None:
     logger.info(f"Validating setp={step}")
     ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
+    logger.info(f"Validating setp={step}")
     if async_no_return:
         evaluator.evaluate.remote(
             dataset,

@@ -40,6 +40,7 @@ class Evaluator:
             model=model_path,
             **kwargs,
         )
+        logger = loggint.getLogger()
         logger.info(
             f"Evaluator initialized on device {ray.get_gpu_ids()} with model {model_path}"
         )

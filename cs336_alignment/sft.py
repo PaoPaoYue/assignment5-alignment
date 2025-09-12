@@ -51,7 +51,7 @@ class TrainParams:
     scheduler_t: int = 1
     scheduler_t_warmup: float = 0
     scheduler_t_mult: int = 1
-    scheduler_min_lr: float = 0
+    scheduler_min_lr: float = 1e-4
     schduler_warmup_lr_factor: float = 0
 
     num_epochs: int = 1
@@ -269,7 +269,7 @@ def train_one_epoch(
                 evaluator,
                 valid_dataset,
                 params,
-                step=(i + 1) // params.accumulate_steps,
+                step=(i + 1),
                 async_no_return=True,
             )
 

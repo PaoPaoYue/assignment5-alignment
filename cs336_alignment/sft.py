@@ -37,13 +37,13 @@ class TrainParams:
     valid_result_path: str
     checkpoint_path: str
 
-    valid_steps: list = field(default_factory=lambda: [32, 64, 128, 256]) # step = count / batch_size, default counts=[128, 256, 512, 1024]
+    valid_steps: list = field(default_factory=lambda: [64, 128, 256, 512]) # step = count / batch_size, default counts=[128, 256, 512, 1024]
 
     seed: int = 42
 
     lr: float = 1e-4
-    batch_size: int = 4
-    accumulate_steps: int = 2
+    batch_size: int = 2
+    accumulate_steps: int = 4
     max_grad: float = 0
     optimizer_beta1: float = 0.9
     optimizer_beta2: float = 0.999
@@ -235,7 +235,6 @@ def train_one_epoch(
             token_entropy = -torch.sum(probs * log_probs, dim=-1) # (B, seq_len)
             loss = masked_normalize(-label_log_probs, response_mask, normalize_constant=response_mask.sum() * params.accumulate_steps)
             per_token_entropy = masked_normalize(token_entropy, response_mask, normalize_constant=response_mask.sum())
-            logger.info("loss={loss}")
         loss.backward()
         if (i + 1) % params.accumulate_steps == 0:
             for p in model.parameters():

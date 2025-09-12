@@ -196,7 +196,7 @@ if __name__ == "__main__":
         sampling_params=SamplingParams(
             temperature=1.0,
             top_p=1.0,
-            max_tokens=1024,
+            max_tokens=64,
             min_tokens=4,
             include_stop_str_in_output=True,
             stop="</answer>",

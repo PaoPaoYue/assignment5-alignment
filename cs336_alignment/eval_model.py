@@ -20,7 +20,12 @@ logger = logging.getLogger(__name__)
 
 @ray.remote
 class Evaluator:
-    def __init__():
+    def __init__(
+        self,
+        model_path: str,
+        seed: int,
+        sampling_params: SamplingParams,
+        **kwargs,):
         pass
 
     def evaluate(self, *args, **kwargs):

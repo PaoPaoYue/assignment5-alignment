@@ -40,7 +40,7 @@ class Evaluator:
             model=model_path,
             **kwargs,
         )
-        logger = loggint.getLogger()
+        logger = logging.getLogger()
         logger.info(
             f"Evaluator initialized on device {ray.get_gpu_ids()} with model {model_path}"
         )
@@ -50,6 +50,8 @@ class Evaluator:
         self.__RESULT_FILE_MIN_ROWS = 100
 
     def evaluate(self, ds: ray.data.Dataset, batch_size: int = 4, result_path: str=None) -> dict[str, any]:
+        logger = logging.getLogger()
+        logger.info("Evaluator starting evaluation##################")
         self.eval_step += 1
         result_buffer = []
         for batch in tqdm(
@@ -85,6 +87,8 @@ class Evaluator:
         return result, analysis
 
     def load_new_policy_weights(self, state_dict: dict[str, any]):
+        logger = logging.getLogger()
+        logger.info("Evaluator loading new policy weights#############")
         llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
         llm_model.load_weights(state_dict.items())
 

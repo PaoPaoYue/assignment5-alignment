@@ -10,7 +10,6 @@ import wandb
 import torch
 from tqdm import tqdm
 from vllm import LLM, RequestOutput, SamplingParams
-from vllm.model_executor import set_random_seed as vllm_set_random_seed
 
 from cs336_alignment.common import R1_ZERO_PROMPT as PROMPT_TEMPLATE, init_random_seed
 from cs336_alignment.common import mute_ray_data, load_dataset
@@ -40,7 +39,6 @@ class Evaluator:
             model=model_path,
             **kwargs,
         )
-        logger = logging.getLogger()
         logger.info(
             f"Evaluator initialized on device {ray.get_gpu_ids()} with model {model_path}"
         )
@@ -50,7 +48,6 @@ class Evaluator:
         self.__RESULT_FILE_MIN_ROWS = 100
 
     def evaluate(self, ds: ray.data.Dataset, batch_size: int = 4, result_path: str=None) -> dict[str, any]:
-        logger = logging.getLogger()
         logger.info("Evaluator starting evaluation##################")
         self.eval_step += 1
         result_buffer = []
@@ -87,7 +84,6 @@ class Evaluator:
         return result, analysis
 
     def load_new_policy_weights(self, state_dict: dict[str, any]):
-        logger = logging.getLogger()
         logger.info("Evaluator loading new policy weights#############")
         llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
         llm_model.load_weights(state_dict.items())

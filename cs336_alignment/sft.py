@@ -321,24 +321,24 @@ def save_checkpoint_only_best(
                 logger.warning(f"[WARN] Failed to delete old checkpoint: {old_ckpt} ({e})")
 
 if __name__ == "__main__":
-    evaluator = Evaluator.options(num_gpus=0.2).remote(
-        model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
-        seed=42,
-        sampling_params=SamplingParams(
-            temperature=1.0,
-            top_p=1.0,
-            max_tokens=1024,
-            min_tokens=4,
-            include_stop_str_in_output=True,
-            stop="</answer>",
-            logprobs=10,
-        ),
-        dtype=torch.bfloat16,
-        # enable_prefix_caching=True,
-        gpu_memory_utilization=0.2,
-    )
+    # evaluator = Evaluator.options(num_gpus=0.2).remote(
+    #     model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
+    #     seed=42,
+    #     sampling_params=SamplingParams(
+    #         temperature=1.0,
+    #         top_p=1.0,
+    #         max_tokens=1024,
+    #         min_tokens=4,
+    #         include_stop_str_in_output=True,
+    #         stop="</answer>",
+    #         logprobs=10,
+    #     ),
+    #     dtype=torch.bfloat16,
+    #     # enable_prefix_caching=True,
+    #     gpu_memory_utilization=0.2,
+    # )
     params = TrainParams(
-        evaluator=evaluator,
+        evaluator=None,
         model_dir_path= os.path.abspath("./models/qwen2.5-math-1.5b"),
         train_dir_path= os.path.abspath("./datasets/train/math_12k/train"),
         valid_dir_path= os.path.abspath("./datasets/eval/math"),

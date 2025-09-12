@@ -39,12 +39,12 @@ class TrainParams:
     valid_result_path: str
     checkpoint_path: str
 
-    valid_steps: list = field(default_factory=lambda: [64, 128, 256, 512]) # step = count / batch_size, default counts=[128, 256, 512, 1024]
+    valid_steps: list = field(default_factory=lambda: [128, 256, 512, 1024]) # step = count / batch_size, default counts=[128, 256, 512, 1024]
 
     seed: int = 42
 
-    lr: float = 1e-3
-    batch_size: int = 2
+    lr: float = 1e-4
+    batch_size: int = 1
     accumulate_steps: int = 4
     max_grad: float = 0
     optimizer_beta1: float = 0.9
@@ -53,7 +53,7 @@ class TrainParams:
     scheduler_t: int = 1
     scheduler_t_warmup: float = 0
     scheduler_t_mult: int = 1
-    scheduler_min_lr: float = 1e-4
+    scheduler_min_lr: float = 1e-5
     schduler_warmup_lr_factor: float = 0
 
     num_epochs: int = 1

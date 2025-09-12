@@ -102,7 +102,7 @@ def train_model(config: dict[any, any]):
         eta_warmup_factor=params.schduler_warmup_lr_factor,
     )
 
-    evaluator = Evaluator.options(num_gpus=0.3).remote(
+    evaluator = Evaluator.options(num_gpus=0.5).remote(
         model_path=params.model_dir_path,
         seed=42,
         sampling_params=SamplingParams(
@@ -195,6 +195,6 @@ if __name__ == "__main__":
     trainer = ray.train.torch.TorchTrainer(
         train_model,
         train_loop_config=asdict(params),
-        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.3})
+        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.5})
     )
     trainer.fit()

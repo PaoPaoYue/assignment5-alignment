@@ -32,7 +32,7 @@ class Evaluator:
         print(233333333333333333333333333)
         return None
 
-    def load_new_policy_weights(self, state_dict: dict[str, any]):
+    def load_new_policy_weights(self, *args):
         return None
 
 # @ray.remote(num_gpus=1, max_concurrency=1)

@@ -194,6 +194,7 @@ if __name__ == "__main__":
         valid_dir_path= os.path.abspath("./datasets/eval/math"),
         valid_result_path= os.path.abspath("./artifacts/results/sft-valid"),
         checkpoint_path= os.path.abspath("./artifacts/checkpoints/sft_ckpt"),
+        evaluator=evaluator,
     )
     trainer = ray.train.torch.TorchTrainer(
         train_model,

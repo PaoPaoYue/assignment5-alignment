@@ -39,12 +39,12 @@ class TrainParams:
     valid_result_path: str
     checkpoint_path: str
 
-    valid_steps: list = field(default_factory=lambda: [128, 256, 512, 1024]) # step = count / batch_size, default counts=[128, 256, 512, 1024]
+    valid_steps: list = field(default_factory=lambda: [32, 64, 128, 256]) # step = count / batch_size, default counts=[128, 256, 512, 1024]
 
     seed: int = 42
 
-    lr: float = 1e-4
-    batch_size: int = 1
+    lr: float = 5e-5
+    batch_size: int = 4
     accumulate_steps: int = 4
     max_grad: float = 0
     optimizer_beta1: float = 0.9
@@ -53,7 +53,7 @@ class TrainParams:
     scheduler_t: int = 1
     scheduler_t_warmup: float = 0
     scheduler_t_mult: int = 1
-    scheduler_min_lr: float = 1e-5
+    scheduler_min_lr: float = 0
     schduler_warmup_lr_factor: float = 0
 
     num_epochs: int = 1
@@ -269,26 +269,26 @@ def validate(
     step: any,
     async_no_return: bool = False,
 ) -> dict[str, float] | None:
-    # evaluator = params.evaluator
-    # ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
-    # logger.info(f"Weights sync done, validating setp={step}")
-    # if async_no_return:
-    #     evaluator.evaluate.remote(
-    #         dataset,
-    #         params.batch_size,
-    #         f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
-    #     )
-    #     return
-    # else:
-    #     _, analysis = ray.get(
-    #         evaluator.evaluate.remote(
-    #             dataset,
-    #             params.batch_size,
-    #             f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
-    #         )
-    #     )
-    #     return analysis
-    return {__MAJOR_METRIC_NAME: 10}
+    evaluator = params.evaluator
+    ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
+    logger.info(f"Weights sync done, validating setp={step}")
+    if async_no_return:
+        evaluator.evaluate.remote(
+            dataset,
+            params.batch_size,
+            f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
+        )
+        return
+    else:
+        _, analysis = ray.get(
+            evaluator.evaluate.remote(
+                dataset,
+                params.batch_size,
+                f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
+            )
+        )
+        return analysis
+
 
 def save_checkpoint_only_best(
     save_dir: Path,
@@ -321,24 +321,24 @@ def save_checkpoint_only_best(
                 logger.warning(f"[WARN] Failed to delete old checkpoint: {old_ckpt} ({e})")
 
 if __name__ == "__main__":
-    # evaluator = Evaluator.options(num_gpus=0.2).remote(
-    #     model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
-    #     seed=42,
-    #     sampling_params=SamplingParams(
-    #         temperature=1.0,
-    #         top_p=1.0,
-    #         max_tokens=1024,
-    #         min_tokens=4,
-    #         include_stop_str_in_output=True,
-    #         stop="</answer>",
-    #         logprobs=10,
-    #     ),
-    #     dtype=torch.bfloat16,
-    #     # enable_prefix_caching=True,
-    #     gpu_memory_utilization=0.2,
-    # )
+    evaluator = Evaluator.options(num_gpus=0.1).remote(
+        model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
+        seed=42,
+        sampling_params=SamplingParams(
+            temperature=1.0,
+            top_p=1.0,
+            max_tokens=1024,
+            min_tokens=4,
+            include_stop_str_in_output=True,
+            stop="</answer>",
+            logprobs=10,
+        ),
+        dtype=torch.bfloat16,
+        # enable_prefix_caching=True,
+        gpu_memory_utilization=0.1,
+    )
     params = TrainParams(
-        evaluator=None,
+        evaluator=evaluator,
         model_dir_path= os.path.abspath("./models/qwen2.5-math-1.5b"),
         train_dir_path= os.path.abspath("./datasets/train/math_12k/train"),
         valid_dir_path= os.path.abspath("./datasets/eval/math"),
@@ -348,6 +348,6 @@ if __name__ == "__main__":
     trainer = ray.train.torch.TorchTrainer(
         train_model,
         train_loop_config=asdict(params),
-        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.8})
+        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.9})
     )
     trainer.fit()

@@ -322,7 +322,7 @@ def save_checkpoint_only_best(
                 logger.warning(f"[WARN] Failed to delete old checkpoint: {old_ckpt} ({e})")
 
 if __name__ == "__main__":
-    evaluator = Evaluator.options(num_gpus=0.5).remote(
+    evaluator = Evaluator.options(num_gpus=0.2).remote(
         model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
         seed=42,
         sampling_params=SamplingParams(
@@ -336,7 +336,7 @@ if __name__ == "__main__":
         ),
         dtype=torch.bfloat16,
         # enable_prefix_caching=True,
-        gpu_memory_utilization=0.5,
+        gpu_memory_utilization=0.2,
     )
     params = TrainParams(
         evaluator=evaluator,
@@ -349,6 +349,6 @@ if __name__ == "__main__":
     trainer = ray.train.torch.TorchTrainer(
         train_model,
         train_loop_config=asdict(params),
-        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.5})
+        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.8})
     )
     trainer.fit()

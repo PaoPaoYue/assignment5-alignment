@@ -41,7 +41,7 @@ class TrainParams:
 
     seed: int = 42
 
-    lr: float = 1e-4
+    lr: float = 1e-3
     batch_size: int = 2
     accumulate_steps: int = 4
     max_grad: float = 0
@@ -289,7 +289,7 @@ def validate(
     step: any,
     async_no_return: bool = False,
 ) -> dict[str, float] | None:
-    logger.info("Validating setp={step}")
+    logger.info(f"Validating setp={step}")
     evaluator.load_new_policy_weights.remote(model.state_dict())
     if async_no_return:
         evaluator.evaluate.remote(

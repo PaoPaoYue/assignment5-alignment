@@ -248,7 +248,6 @@ def train_one_epoch(
             validate(
                 epoch,
                 model,
-                evaluator,
                 valid_dataset,
                 params,
                 step=(i + 1),

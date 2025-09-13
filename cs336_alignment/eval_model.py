@@ -115,7 +115,7 @@ class Evaluator:
         print(f"加载前 {first_param_name} 前3个值:\n", first_param_tensor.view(-1)[:3])
 
         # 加载新权重（注意不要用 .items()）
-        llm_model.load_state_dict(state_dict)
+        llm_model.load_weights(state_dict.items())
 
         # 再取一次同名参数
         after_tensor = llm_model.state_dict()[first_param_name]

@@ -127,6 +127,8 @@ class Evaluator:
         else:
             print("⚠️ 参数没有变化")
 
+        time.sleep(3)
+
 def log_generations(
     batch: dict[str, np.ndarray], outputs: list[RequestOutput], logprob_num: int
 ) -> Iterator[dict[str, any]]:

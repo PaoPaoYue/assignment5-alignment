@@ -106,7 +106,6 @@ class Evaluator:
     def load_new_policy_weights(self, state_dict: dict[str, any]):
         llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
         llm_model.load_weights(state_dict.items())
-        logger.info(f"Evaluator loaded new policy weights {state_dict}")
 
 
 def log_generations(

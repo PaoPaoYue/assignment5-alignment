@@ -211,7 +211,7 @@ if __name__ == "__main__":
         # dtype="half",
         dtype=torch.bfloat16,
         # enable_prefix_caching=True,
-        gpu_memory_utilization=0.95
+        gpu_memory_utilization=0.5
     )
     ds = load_dataset("./datasets/eval/math")
     model_state_dict, _, _, _ = load_checkpoint("./artifacts/checkpoints/sft_ckpt/checkpoint.pt")

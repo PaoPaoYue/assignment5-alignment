@@ -64,7 +64,7 @@ def train_model(config: dict[any, any]):
     init_random_seed(params.seed)
     mute_ray_data()
 
-    train_dataset, valid_dataset =  load_dataset(params.train_dir_path), load_dataset(params.valid_dir_path)
+    train_dataset, valid_dataset =  load_dataset(params.train_dir_path).limit(256), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
         torch_dtype=torch.bfloat16,
@@ -207,15 +207,15 @@ def train_one_epoch(
                 }
             )
 
-        if (i + 1) in params.valid_steps:
-            validate(
-                epoch,
-                model,
-                valid_dataset,
-                params,
-                step=(i + 1),
-                async_no_return=True,
-            )
+        # if (i + 1) in params.valid_steps:
+        #     validate(
+        #         epoch,
+        #         model,
+        #         valid_dataset,
+        #         params,
+        #         step=(i + 1),
+        #         async_no_return=True,
+        #     )
 
     return {
         "train/loss": running_loss / (i + 1),

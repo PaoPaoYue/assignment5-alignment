@@ -103,10 +103,29 @@ class Evaluator:
             )
         return result, analysis
 
+    # def load_new_policy_weights(self, state_dict: dict[str, any]):
+    #     llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
+    #     llm_model.load_weights(state_dict.items())
+
     def load_new_policy_weights(self, state_dict: dict[str, any]):
         llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
-        llm_model.load_weights(state_dict.items())
 
+        # 取一个参数名，比如第一个
+        first_param_name, first_param_tensor = next(iter(llm_model.state_dict().items()))
+        print(f"加载前 {first_param_name} 前3个值:\n", first_param_tensor.view(-1)[:3])
+
+        # 加载新权重（注意不要用 .items()）
+        llm_model.load_state_dict(state_dict)
+
+        # 再取一次同名参数
+        after_tensor = llm_model.state_dict()[first_param_name]
+        print(f"加载后 {first_param_name} 前3个值:\n", after_tensor.view(-1)[:3])
+
+        # 简单判断是否变化
+        if not torch.equal(first_param_tensor, after_tensor):
+            print("✅ 参数已更新")
+        else:
+            print("⚠️ 参数没有变化")
 
 def log_generations(
     batch: dict[str, np.ndarray], outputs: list[RequestOutput], logprob_num: int
@@ -231,9 +250,9 @@ if __name__ == "__main__":
         "./artifacts/checkpoints/sft_ckpt/checkpoint.pt"
     )
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
-    _, analysis = ray.get(
-        evaluator.evaluate.remote(
-            ds, batch_size=4, result_path="./artifacts/results/eval"
-        )
-    )
+    # _, analysis = ray.get(
+    #     evaluator.evaluate.remote(
+    #         ds, batch_size=4, result_path="./artifacts/results/eval"
+    #     )
+    # )
     logger.info(analysis)

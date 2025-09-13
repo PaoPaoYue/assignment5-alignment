@@ -214,7 +214,7 @@ def train_one_epoch(
             optimizer.step()
             optimizer.zero_grad()
 
-        scheduler.step((epoch - 1) + (i + 1) / total)
+        scheduler.step((epoch - 1) + i / total)
 
         running_loss += loss.item() * params.accumulate_steps
         running_entropy += per_token_entropy.item()

@@ -254,7 +254,7 @@ def validate(
 
 if __name__ == "__main__":
     run_name = f"run_{time.strftime('%Y%m%d_%H%M%S')}"
-    evaluator = Evaluator.options(num_gpus=0.2).remote(
+    evaluator = Evaluator.options(num_gpus=0.1).remote(
         run_name=run_name,
         model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
         seed=42,

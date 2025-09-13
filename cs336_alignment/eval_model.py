@@ -114,7 +114,20 @@ class Evaluator:
         first_param_name, first_param_tensor = next(iter(llm_model.state_dict().items()))
         print(f"加载前 {first_param_name} 前3个值:\n", first_param_tensor.view(-1)[:3])
 
-        # 加载新权重（注意不要用 .items()）
+        # 对比 state_dict 里的对应参数
+        if first_param_name in state_dict:
+            incoming_tensor = state_dict[first_param_name]
+            print(f"新权重 {first_param_name} 前3个值:\n", incoming_tensor.view(-1)[:3])
+
+            if torch.equal(first_param_tensor, incoming_tensor):
+                print("⚠️ 新权重和原参数完全一样")
+            else:
+                diff = (incoming_tensor - first_param_tensor).abs().sum().item()
+                print(f"🔍 新权重与原参数不同，总差异量: {diff}")
+        else:
+            print(f"⚠️ state_dict 中没有 {first_param_name}")
+
+        # 加载新权重（注意不要用 .items()，除非 load_weights 明确要求）
         llm_model.load_weights(state_dict.items())
 
         # 再取一次同名参数

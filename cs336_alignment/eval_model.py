@@ -107,38 +107,39 @@ class Evaluator:
     #     llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
     #     llm_model.load_weights(state_dict.items())
 
-    def load_new_policy_weights(self, state_dict: dict[str, any]):
+    def load_new_policy_weights(self, state_dict: dict[str, any], num_layers_to_check: int = 3):
         llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
 
-        # 取一个参数名，比如第一个
-        first_param_name, first_param_tensor = next(iter(llm_model.state_dict().items()))
-        print(f"加载前 {first_param_name} 前3个值:\n", first_param_tensor.view(-1)[:3])
+        # 获取模型参数列表
+        model_params = list(llm_model.state_dict().items())
 
-        # 对比 state_dict 里的对应参数
-        if first_param_name in state_dict:
-            incoming_tensor = state_dict[first_param_name]
-            print(f"新权重 {first_param_name} 前3个值:\n", incoming_tensor.view(-1)[:3])
+        # 取最后 num_layers_to_check 个参数
+        params_to_check = model_params[-num_layers_to_check:]
 
-            if torch.equal(first_param_tensor, incoming_tensor):
-                print("⚠️ 新权重和原参数完全一样")
+        for name, before_tensor in params_to_check:
+            print(f"\n=== 检查参数: {name} ===")
+            print("加载前 前3个值:", before_tensor.view(-1)[:3])
+
+            # 对比 state_dict 中的对应参数
+            if name in state_dict:
+                incoming_tensor = state_dict[name]
+                print("新权重 前3个值:", incoming_tensor.view(-1)[:3])
+
+                if torch.equal(before_tensor, incoming_tensor):
+                    print("⚠️ 新权重和原参数完全一样")
+                else:
+                    diff = (incoming_tensor - before_tensor).abs().sum().item()
+                    print(f"🔍 新权重与原参数不同，总差异量: {diff}")
             else:
-                diff = (incoming_tensor - first_param_tensor).abs().sum().item()
-                print(f"🔍 新权重与原参数不同，总差异量: {diff}")
-        else:
-            print(f"⚠️ state_dict 中没有 {first_param_name}")
+                print(f"⚠️ state_dict 中没有 {name}")
 
         # 加载新权重（注意不要用 .items()，除非 load_weights 明确要求）
         llm_model.load_weights(state_dict.items())
 
-        # 再取一次同名参数
-        after_tensor = llm_model.state_dict()[first_param_name]
-        print(f"加载后 {first_param_name} 前3个值:\n", after_tensor.view(-1)[:3])
-
-        # 简单判断是否变化
-        if not torch.equal(first_param_tensor, after_tensor):
-            print("✅ 参数已更新")
-        else:
-            print("⚠️ 参数没有变化")
+        # 再次检查加载后的值
+        for name, _ in params_to_check:
+            after_tensor = llm_model.state_dict()[name]
+            print(f"加载后 {name} 前3个值:", after_tensor.view(-1)[:3])
 
         time.sleep(3)
 

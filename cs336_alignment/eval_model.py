@@ -106,7 +106,7 @@ class Evaluator:
     def load_new_policy_weights(self, state_dict: dict[str, any]):
         llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
         llm_model.load_weights(state_dict.items())
-        logger.info("Evaluator loaded new policy weights")
+        logger.info(f"Evaluator loaded new policy weights {state_dict}")
 
 
 def log_generations(
@@ -231,7 +231,6 @@ if __name__ == "__main__":
     model_state_dict, _, _, _ = load_checkpoint(
         "./artifacts/checkpoints/sft_ckpt/checkpoint.pt"
     )
-    logger.info("Loaded checkpoint {model_state_dict}")
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     _, analysis = ray.get(
         evaluator.evaluate.remote(

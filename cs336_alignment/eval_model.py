@@ -159,10 +159,10 @@ def analyse_result(ds: ray.data.Dataset) -> dict[str, any]:
     total_count = ds.count()
 
     # 条件过滤
-    correct_answer = ds.filter(lambda r: r["answer_reward"] == 1)
-    correct_format = ds.filter(lambda r: r["format_reward"] == 1)
-    wrong_answer = ds.filter(lambda r: r["answer_reward"] != 1)
-    wrong_format = ds.filter(lambda r: r["format_reward"] != 1)
+    correct_answer = ds.filter(expr="answer_reward == 1")
+    correct_format = ds.filter(expr="format_reward == 1")
+    wrong_answer = ds.filter(expr="answer_reward != 1")
+    wrong_format = ds.filter(expr="format_reward != 1")
 
     # 计算数量
     correct_answer_count = correct_answer.count()
@@ -227,10 +227,11 @@ if __name__ == "__main__":
         gpu_memory_utilization=0.5,
     )
     ds = load_dataset("./datasets/eval/math")
-    # model_state_dict, _, _, _ = load_checkpoint(
-    #     "./artifacts/checkpoints/sft_ckpt/checkpoint.pt"
-    # )
-    # ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
+    model_state_dict, _, _, _ = load_checkpoint(
+        "./artifacts/checkpoints/sft_ckpt/checkpoint.pt"
+    )
+    logger.info("Loaded checkpoint {model_state_dict}")
+    ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     _, analysis = ray.get(
         evaluator.evaluate.remote(
             ds, batch_size=4, result_path="./artifacts/results/eval"

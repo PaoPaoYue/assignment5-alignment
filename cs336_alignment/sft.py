@@ -1,6 +1,7 @@
 from dataclasses import asdict, dataclass, field
 import os
 from pathlib import Path
+import tempfile
 
 import numpy as np
 import ray
@@ -128,18 +129,18 @@ def train_model(config: dict[any, any]):
             "eval/reward": 10,
             "eval/format_reward": 10,
         }
-
-
         logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
-        ray.train.report(
-            metrics=val_metrics,
-            checkpoint=ray.train.Checkpoint.from_dict({
-                "epoch": epoch + 1,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "scheduler_state_dict": scheduler.state_dict(),
-            })
-        )
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            save_checkpoint(
+                os.path.join(tmpdir, "checkpoint.pt"),
+                model,
+                optimizer,
+                scheduler,
+                epoch=epoch+1,
+            )
+            checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
+            ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
     wandb.finish()
 
 

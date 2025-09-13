@@ -2,6 +2,7 @@ import json
 import logging
 from itertools import islice
 import os
+import time
 from typing import Iterator
 
 import numpy as np
@@ -14,6 +15,7 @@ from vllm import LLM, RequestOutput, SamplingParams
 from cs336_alignment.common import R1_ZERO_PROMPT as PROMPT_TEMPLATE
 from cs336_alignment.common import mute_ray_data, load_dataset, init_random_seed, init_wandb
 from cs336_alignment.drgrpo_grader import r1_zero_reward_fn
+from cs336_basics.checkpoint import load_checkpoint
 
 logger = logging.getLogger(__name__)
 
@@ -209,8 +211,10 @@ if __name__ == "__main__":
         # dtype="half",
         dtype=torch.bfloat16,
         # enable_prefix_caching=True,
-        # gpu_memory_utilization=0.95
+        gpu_memory_utilization=0.95
     )
     ds = load_dataset("./datasets/eval/math")
-    _, analysis = ray.get(evaluator.evaluate.remote(ds, batch_size=16, result_path="./artifacts/results/eval"))
+    model_state_dict, _, _, _ = load_checkpoint("./artifacts/checkpoints/sft_ckpt/checkpoint.pt")
+    ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
+    _, analysis = ray.get(evaluator.evaluate.remote(ds, batch_size=4, result_path="./artifacts/results/eval"))
     logger.info(analysis)

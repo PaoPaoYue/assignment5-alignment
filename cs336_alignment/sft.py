@@ -5,7 +5,7 @@ import tempfile
 
 import numpy as np
 import ray
-import ray.train 
+import ray.train
 import ray.train.torch
 import torch
 import torch.nn as nn
@@ -38,7 +38,9 @@ class TrainParams:
     valid_result_path: str
     checkpoint_path: str
 
-    valid_steps: list = field(default_factory=lambda: [32, 64, 128, 256]) # step = count / batch_size, default counts=[128, 256, 512, 1024]
+    valid_steps: list = field(
+        default_factory=lambda: [32, 64, 128, 256]
+    )  # step = count / batch_size, default counts=[128, 256, 512, 1024]
 
     seed: int = 42
 
@@ -65,7 +67,9 @@ def train_model(config: dict[any, any]):
     init_random_seed(params.seed)
     mute_ray_data()
 
-    train_dataset, valid_dataset =  load_dataset(params.train_dir_path).limit(256), load_dataset(params.valid_dir_path)
+    train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(
+        256
+    ), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
         torch_dtype=torch.bfloat16,
@@ -73,7 +77,9 @@ def train_model(config: dict[any, any]):
         trust_remote_code=True,
     )
     model = ray.train.torch.prepare_model(model)
-    tokenizer = AutoTokenizer.from_pretrained(params.model_dir_path, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(
+        params.model_dir_path, trust_remote_code=True
+    )
     optimizer = AdamW(
         model.parameters(),
         lr=params.lr,
@@ -96,7 +102,7 @@ def train_model(config: dict[any, any]):
             "learning_rate": params.lr,
             "accumulate_steps": params.accumulate_steps,
             "max_grad": params.max_grad,
-        }
+        },
     )
     wandb.watch(model, log="all", log_freq=200)
 
@@ -117,27 +123,27 @@ def train_model(config: dict[any, any]):
             scheduler,
             params,
         )
-        
+
         # val_metrics = validate(
         #     epoch,
         #     model,
         #     valid_dataset,
         #     params,
         #     step="full",
-        # ) 
+        # )
         val_metrics = {
             "eval/reward": 10,
             "eval/format_reward": 10,
         }
         logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             save_checkpoint(
                 os.path.join(tmpdir, "checkpoint.pt"),
                 model,
                 optimizer,
                 scheduler,
-                epoch=epoch+1,
+                epoch=epoch + 1,
             )
             checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
             ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
@@ -160,7 +166,7 @@ def train_one_epoch(
     running_entropy = 0.0
 
     total = (dataset.count() + params.batch_size - 1) // params.batch_size
-    
+
     pbar = tqdm(
         dataset.iter_batches(batch_size=params.batch_size),
         total=total,
@@ -168,8 +174,13 @@ def train_one_epoch(
         leave=False,
     )
     for i, batch in enumerate(pbar):
-        prompt_strs = [R1_ZERO_PROMPT.format(question=prob) for prob in batch["problem"]]
-        output_strs = [R1_ZERO_OUTPUT.format(solution=sol, answer=ans) for sol, ans in zip(batch["solution"], batch["answer"])]
+        prompt_strs = [
+            R1_ZERO_PROMPT.format(question=prob) for prob in batch["problem"]
+        ]
+        output_strs = [
+            R1_ZERO_OUTPUT.format(solution=sol, answer=ans)
+            for sol, ans in zip(batch["solution"], batch["answer"])
+        ]
         input_tensors = tokenize_prompt_and_output(prompt_strs, output_strs, tokenizer)
 
         inputs = input_tensors["input_ids"].to("cuda", non_blocking=True)
@@ -181,10 +192,20 @@ def train_one_epoch(
             logits = outputs.logits  # (B, seq_len, vocab_size)
             probs = torch.softmax(logits, dim=-1)  # (B, seq_len, vocab_size)
             log_probs = probs.log()
-            label_log_probs = torch.gather(log_probs, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)  # (B, seq_len)
-            token_entropy = -torch.sum(probs * log_probs, dim=-1) # (B, seq_len)
-            loss = masked_normalize(-label_log_probs, response_mask, normalize_constant=response_mask.sum() * params.accumulate_steps)
-            per_token_entropy = masked_normalize(token_entropy, response_mask, normalize_constant=response_mask.sum())
+            label_log_probs = torch.gather(
+                log_probs, dim=-1, index=labels.unsqueeze(-1)
+            ).squeeze(
+                -1
+            )  # (B, seq_len)
+            token_entropy = -torch.sum(probs * log_probs, dim=-1)  # (B, seq_len)
+            loss = masked_normalize(
+                -label_log_probs,
+                response_mask,
+                normalize_constant=response_mask.sum() * params.accumulate_steps,
+            )
+            per_token_entropy = masked_normalize(
+                token_entropy, response_mask, normalize_constant=response_mask.sum()
+            )
         loss.backward()
         if (i + 1) % params.accumulate_steps == 0:
             for p in model.parameters():
@@ -198,14 +219,14 @@ def train_one_epoch(
         running_loss += loss.item() * params.accumulate_steps
         running_entropy += per_token_entropy.item()
 
-        pbar.set_postfix(
-            loss=running_loss / (i + 1), entropy=running_entropy / (i + 1)
-        )
+        pbar.set_postfix(loss=running_loss / (i + 1), entropy=running_entropy / (i + 1))
 
         if (i + 1) % params.accumulate_steps == 0 and wandb.run is not None:
             wandb.log(
                 {
-                    "train_step": (epoch - 1) * total + i // params.accumulate_steps + 1,
+                    "train_step": (epoch - 1) * total
+                    + i // params.accumulate_steps
+                    + 1,
                     "train/lr": scheduler.get_last_lr()[0],
                     "train/loss": running_loss / (i + 1),
                     "train/entropy": running_entropy / (i + 1),
@@ -257,6 +278,7 @@ def validate(
         )
         return analysis
 
+
 if __name__ == "__main__":
     run_name = f"run_{time.strftime('%Y%m%d_%H%M%S')}"
     evaluator = Evaluator.options(num_gpus=0.1).remote(
@@ -279,25 +301,29 @@ if __name__ == "__main__":
     params = TrainParams(
         run_name=run_name,
         evaluator=evaluator,
-        model_dir_path= os.path.abspath("./models/qwen2.5-math-1.5b"),
-        train_dir_path= os.path.abspath("./datasets/train/math_12k/train"),
-        valid_dir_path= os.path.abspath("./datasets/eval/math"),
-        valid_result_path= os.path.abspath("./artifacts/results/sft-valid"),
-        checkpoint_path= os.path.abspath("./artifacts/checkpoints/sft_ckpt"),
+        model_dir_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
+        train_dir_path=os.path.abspath("./datasets/train/math_12k/train"),
+        valid_dir_path=os.path.abspath("./datasets/eval/math"),
+        valid_result_path=os.path.abspath("./artifacts/results/sft-valid"),
+        checkpoint_path=os.path.abspath("./artifacts/checkpoints/sft_ckpt"),
     )
     trainer = ray.train.torch.TorchTrainer(
         train_model,
         train_loop_config=asdict(params),
-        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.9}),
+        scaling_config=ray.train.ScalingConfig(
+            num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.9}
+        ),
         run_config=ray.train.RunConfig(
             name=run_name,
             checkpoint_config=ray.train.CheckpointConfig(
-                num_to_keep=1,          # 不保留任何 checkpoint
+                num_to_keep=1,  # 不保留任何 checkpoint
                 checkpoint_score_attribute="eval/reward",
-                checkpoint_score_order="max"
-            )
-        )
+                checkpoint_score_order="max",
+            ),
+        ),
     )
     result = trainer.fit()
     result.checkpoint.to_directory(params.checkpoint_path)
-    logger.info(f"Train finished, copy checkpoint from {result.checkpoint.path} to {params.checkpoint_path}.")
+    logger.info(
+        f"Train finished, copy checkpoint from {result.checkpoint.path} to {params.checkpoint_path}."
+    )

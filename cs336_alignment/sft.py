@@ -68,7 +68,7 @@ def train_model(config: dict[any, any]):
     mute_ray_data()
 
     train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(
-        256
+        1024
     ), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,

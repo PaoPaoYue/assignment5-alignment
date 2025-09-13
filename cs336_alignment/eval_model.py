@@ -103,45 +103,9 @@ class Evaluator:
             )
         return result, analysis
 
-    # def load_new_policy_weights(self, state_dict: dict[str, any]):
-    #     llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
-    #     llm_model.load_weights(state_dict.items())
-
-    def load_new_policy_weights(self, state_dict: dict[str, any], num_layers_to_check: int = 3):
+    def load_new_policy_weights(self, state_dict: dict[str, any]):
         llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
-
-        # 获取模型参数列表
-        model_params = list(llm_model.state_dict().items())
-
-        # 取最后 num_layers_to_check 个参数
-        params_to_check = model_params[-num_layers_to_check:]
-
-        for name, before_tensor in params_to_check:
-            print(f"\n=== 检查参数: {name} ===")
-            print("加载前 前3个值:", before_tensor.view(-1)[:3])
-
-            # 对比 state_dict 中的对应参数
-            if name in state_dict:
-                incoming_tensor = state_dict[name]
-                print("新权重 前3个值:", incoming_tensor.view(-1)[:3])
-
-                if torch.equal(before_tensor, incoming_tensor):
-                    print("⚠️ 新权重和原参数完全一样")
-                else:
-                    diff = (incoming_tensor - before_tensor).abs().sum().item()
-                    print(f"🔍 新权重与原参数不同，总差异量: {diff}")
-            else:
-                print(f"⚠️ state_dict 中没有 {name}")
-
-        # 加载新权重（注意不要用 .items()，除非 load_weights 明确要求）
         llm_model.load_weights(state_dict.items())
-
-        # 再次检查加载后的值
-        for name, _ in params_to_check:
-            after_tensor = llm_model.state_dict()[name]
-            print(f"加载后 {name} 前3个值:", after_tensor.view(-1)[:3])
-
-        time.sleep(3)
 
 def log_generations(
     batch: dict[str, np.ndarray], outputs: list[RequestOutput], logprob_num: int
@@ -266,9 +230,9 @@ if __name__ == "__main__":
         "./artifacts/checkpoints/sft_ckpt/checkpoint.pt"
     )
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
-    # _, analysis = ray.get(
-    #     evaluator.evaluate.remote(
-    #         ds, batch_size=4, result_path="./artifacts/results/eval"
-    #     )
-    # )
+    _, analysis = ray.get(
+        evaluator.evaluate.remote(
+            ds, batch_size=4, result_path="./artifacts/results/eval"
+        )
+    )
     logger.info(analysis)

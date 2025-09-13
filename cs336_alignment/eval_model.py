@@ -11,8 +11,8 @@ import torch
 from tqdm import tqdm
 from vllm import LLM, RequestOutput, SamplingParams
 
-from cs336_alignment.common import R1_ZERO_PROMPT as PROMPT_TEMPLATE, init_random_seed
-from cs336_alignment.common import mute_ray_data, load_dataset
+from cs336_alignment.common import R1_ZERO_PROMPT as PROMPT_TEMPLATE
+from cs336_alignment.common import mute_ray_data, load_dataset, init_random_seed, init_wandb
 from cs336_alignment.drgrpo_grader import r1_zero_reward_fn
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 class Evaluator:
     def __init__(
         self,
+        run_name: str,
         model_path: str,
         seed: int,
         sampling_params: SamplingParams,
@@ -28,6 +29,11 @@ class Evaluator:
     ):
         init_random_seed(seed)
         mute_ray_data()
+
+        init_wandb(run_name, dict(
+            temperature=1.0,
+            top_p=1.0,
+        ))
 
         # from unittest.mock import patch
         # world_size_patch = patch("torch.distributed.get_world_size", return_value=1)
@@ -162,9 +168,8 @@ def analyse_result(ds: ray.data.Dataset) -> dict[str, any]:
     wrong_format_avg_entropy = wrong_format.mean("entropy") or 0
 
     return {
-        "total_count": total_count,
-        "correct_answer_count": correct_answer_count,
-        "correct_format_count": correct_format_count,
+        "reward": correct_answer_count,
+        "format_reward": correct_format_count,
         "correct_answer_rate": (
             correct_answer_count / total_count if total_count > 0 else 0
         ),
@@ -186,8 +191,10 @@ def analyse_result(ds: ray.data.Dataset) -> dict[str, any]:
 
 # ===== 调用示例 =====
 if __name__ == "__main__":
+    run_name = f"run_{time.strftime('%Y%m%d_%H%M%S')}"
     ray.init()
     evaluator = Evaluator.remote(
+        run_name=run_name,
         model_path="./models/qwen2.5-math-1.5b",
         seed=42,
         sampling_params=SamplingParams(

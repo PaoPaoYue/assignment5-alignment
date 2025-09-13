@@ -25,12 +25,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-__MAJOR_METRIC_NAME = "eval/reward"
-__MAJOR_METRIC_GOAL = "maximize"
-
 
 @dataclass
 class TrainParams:
+    run_name: str
     evaluator: Evaluator
 
     model_dir_path: str
@@ -61,31 +59,17 @@ class TrainParams:
     min_delta: int = 1e-4
 
 
-@dataclass
-class TrainState:
-    epoch: int
-    best_metric: float
-    epochs_no_improve: int = 0
-
-
 def train_model(config: dict[any, any]):
     params = TrainParams(**config)
     init_random_seed(params.seed)
     mute_ray_data()
-    state = TrainState(
-        epoch=0,
-        best_metric=(
-            float("inf") if __MAJOR_METRIC_GOAL == "minimize" else -float("inf")
-        ),
-        epochs_no_improve=0,
-    )
 
     train_dataset, valid_dataset =  load_dataset(params.train_dir_path), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
         torch_dtype=torch.bfloat16,
         attn_implementation="flash_attention_2",
-      trust_remote_code=True,
+        trust_remote_code=True,
     )
     model = ray.train.torch.prepare_model(model)
     tokenizer = AutoTokenizer.from_pretrained(params.model_dir_path, trust_remote_code=True)
@@ -105,6 +89,7 @@ def train_model(config: dict[any, any]):
     )
 
     init_wandb(
+        run_name=params.run_name,
         config={
             "batch_size": params.batch_size,
             "learning_rate": params.lr,
@@ -140,39 +125,17 @@ def train_model(config: dict[any, any]):
             step="full",
         ) 
 
-        # 选择指标做早停与保存
-        current_metric = val_metrics[__MAJOR_METRIC_NAME]
-        improved = (-1 if __MAJOR_METRIC_GOAL == "minimize" else 1) * (
-            current_metric - state.best_metric
-        ) > params.min_delta * abs(current_metric)
 
-        state.epoch = epoch
-        if improved:
-            state.best_metric = current_metric
-            state.epochs_no_improve = 0
-
-            save_checkpoint_only_best(
-                save_dir=Path(params.checkpoint_path),
-                model=model,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                params=params,
-                state=state,
-            )
-
-            wandb.summary["best_epoch"] = epoch
-            wandb.summary["best_metric"] = state.best_metric
-        else:
-            state.epochs_no_improve += 1
-
-        if state.epochs_no_improve >= params.patience:
-            logger.info(
-                f"Early stopping at epoch {epoch}: no improvement in {params.patience} epochs."
-            )
-            break
-
-    logger.info(f"Training finished. Best {__MAJOR_METRIC_NAME}: {state.best_metric:.6f}")
-
+        logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
+        ray.train.report(
+            metrics=val_metrics,
+            checkpoint=ray.train.Checkpoint.from_dict({
+                "epoch": epoch + 1,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "scheduler_state_dict": scheduler.state_dict(),
+            })
+        )
     wandb.finish()
 
 
@@ -289,39 +252,10 @@ def validate(
         )
         return analysis
 
-
-def save_checkpoint_only_best(
-    save_dir: Path,
-    model: nn.Module,
-    optimizer: torch.optim.Optimizer,
-    scheduler: torch.optim.lr_scheduler.LRScheduler,
-    params: TrainParams,
-    state: TrainState,
-):
-    """
-    只保留当前最优模型：保存新 best，删除旧 best。
-    返回新的 best 路径。
-    """
-    save_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_name = (
-        f"best_epoch{state.epoch:03d}_{__MAJOR_METRIC_NAME}-{state.best_metric:.4f}.pt"
-    )
-    ckpt_path = save_dir / ckpt_name
-    save_checkpoint(
-        ckpt_path, model, optimizer, scheduler, train_param=params, train_state=state
-    )
-    logger.info(f"Saved best checkpoint to {ckpt_path}")
-
-    # 删除旧同一目录下其他.pt
-    for old_ckpt in save_dir.glob("best_epoch*.pt"):
-        if old_ckpt != ckpt_path:
-            try:
-                old_ckpt.unlink()
-            except Exception as e:
-                logger.warning(f"[WARN] Failed to delete old checkpoint: {old_ckpt} ({e})")
-
 if __name__ == "__main__":
+    run_name = f"run_{time.strftime('%Y%m%d_%H%M%S')}"
     evaluator = Evaluator.options(num_gpus=0.1).remote(
+        run_name=run_name,
         model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
         seed=42,
         sampling_params=SamplingParams(
@@ -338,6 +272,7 @@ if __name__ == "__main__":
         gpu_memory_utilization=0.1,
     )
     params = TrainParams(
+        run_name=run_name,
         evaluator=evaluator,
         model_dir_path= os.path.abspath("./models/qwen2.5-math-1.5b"),
         train_dir_path= os.path.abspath("./datasets/train/math_12k/train"),
@@ -348,6 +283,16 @@ if __name__ == "__main__":
     trainer = ray.train.torch.TorchTrainer(
         train_model,
         train_loop_config=asdict(params),
-        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.9})
+        scaling_config=ray.train.ScalingConfig(num_workers=1, use_gpu=True, resources_per_worker={"GPU": 0.9}),
+        run_config=ray.train.RunConfig(
+            name=run_name,
+            checkpoint_config=ray.train.CheckpointConfig(
+                num_to_keep=1,          # 不保留任何 checkpoint
+                checkpoint_score_attribute="eval/reward",
+                checkpoint_score_order="max"
+            )
+        )
     )
-    trainer.fit()
+    result = trainer.fit()
+    result.checkpoint.to_directory(params.checkpoint_path)
+    logger.info(f"Train finished, copy checkpoint from {result.checkpoint.path} to {params.checkpoint_path}.")

@@ -124,17 +124,14 @@ def train_model(config: dict[any, any]):
             params,
         )
 
-        # val_metrics = validate(
-        #     epoch,
-        #     model,
-        #     valid_dataset,
-        #     params,
-        #     step="full",
-        # )
-        val_metrics = {
-            "eval/reward": 10,
-            "eval/format_reward": 10,
-        }
+        val_metrics = validate(
+            epoch,
+            model,
+            valid_dataset,
+            params,
+            step="full",
+        )
+
         logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -233,15 +230,15 @@ def train_one_epoch(
                 }
             )
 
-        # if (i + 1) in params.valid_steps:
-        #     validate(
-        #         epoch,
-        #         model,
-        #         valid_dataset,
-        #         params,
-        #         step=(i + 1),
-        #         async_no_return=True,
-        #     )
+        if (i + 1) in params.valid_steps:
+            validate(
+                epoch,
+                model,
+                valid_dataset,
+                params,
+                step=(i + 1),
+                async_no_return=True,
+            )
 
     return {
         "train/loss": running_loss / (i + 1),
@@ -281,26 +278,26 @@ def validate(
 
 if __name__ == "__main__":
     run_name = f"run_{time.strftime('%Y%m%d_%H%M%S')}"
-    # evaluator = Evaluator.options(num_gpus=0.1).remote(
-    #     run_name=run_name,
-    #     model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
-    #     seed=42,
-    #     sampling_params=SamplingParams(
-    #         temperature=1.0,
-    #         top_p=1.0,
-    #         max_tokens=1024,
-    #         min_tokens=4,
-    #         include_stop_str_in_output=True,
-    #         stop="</answer>",
-    #         logprobs=10,
-    #     ),
-    #     dtype=torch.bfloat16,
-    #     # enable_prefix_caching=True,
-    #     gpu_memory_utilization=0.1,
-    # )
+    evaluator = Evaluator.options(num_gpus=0.1).remote(
+        run_name=run_name,
+        model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
+        seed=42,
+        sampling_params=SamplingParams(
+            temperature=1.0,
+            top_p=1.0,
+            max_tokens=1024,
+            min_tokens=4,
+            include_stop_str_in_output=True,
+            stop="</answer>",
+            logprobs=10,
+        ),
+        dtype=torch.bfloat16,
+        # enable_prefix_caching=True,
+        gpu_memory_utilization=0.1,
+    )
     params = TrainParams(
         run_name=run_name,
-        evaluator=None,
+        evaluator=evaluator,
         model_dir_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
         train_dir_path=os.path.abspath("./datasets/train/math_12k/train"),
         valid_dir_path=os.path.abspath("./datasets/eval/math"),
@@ -316,7 +313,7 @@ if __name__ == "__main__":
         run_config=ray.train.RunConfig(
             name=run_name,
             checkpoint_config=ray.train.CheckpointConfig(
-                num_to_keep=1,  # 不保留任何 checkpoint
+                num_to_keep=1,
                 checkpoint_score_attribute="eval/reward",
                 checkpoint_score_order="max",
             ),

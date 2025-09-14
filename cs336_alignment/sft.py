@@ -58,9 +58,6 @@ class TrainParams:
     schduler_warmup_lr_factor: float = 0
 
     num_epochs: int = 1
-    patience: int = 1
-    min_delta: int = 1e-4
-
 
 def train_model(config: dict[any, any]):
     params = TrainParams(**config)

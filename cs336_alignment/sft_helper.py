@@ -162,8 +162,8 @@ def sft_microbatch_train_step(
     loss = masked_normalize(
         tensor=-policy_log_probs,  # 取负号，因为我们要最大化 log
         mask=response_mask,
-        normalize_constant=normalize_constant,
-    ) / policy_log_probs.size(0) / gradient_accumulation_steps
+        normalize_constant=normalize_constant * policy_log_probs.size(0) * gradient_accumulation_steps,
+    )
     loss.backward()
 
     return loss, {}

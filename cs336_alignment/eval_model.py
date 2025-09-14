@@ -1,24 +1,35 @@
 import json
 import logging
 from itertools import islice
+import os
+import time
 from typing import Iterator
 
 import numpy as np
 import ray
 import wandb
-from cs336_alignment.common import R1_ZERO_PROMPT as PROMPT_TEMPLATE, init_random_seed
-from cs336_alignment.common import mute_ray_data, load_dataset
-from cs336_alignment.drgrpo_grader import r1_zero_reward_fn
+import torch
 from tqdm import tqdm
 from vllm import LLM, RequestOutput, SamplingParams
-from vllm.model_executor import set_random_seed as vllm_set_random_seed
+
+from cs336_alignment.common import R1_ZERO_PROMPT as PROMPT_TEMPLATE
+from cs336_alignment.common import (
+    mute_ray_data,
+    load_dataset,
+    init_random_seed,
+    init_wandb,
+)
+from cs336_alignment.drgrpo_grader import r1_zero_reward_fn
+from cs336_basics.checkpoint import load_checkpoint
 
 logger = logging.getLogger(__name__)
 
-@ray.remote(num_gpus=1)
+
+@ray.remote(num_gpus=1, max_concurrency=1)
 class Evaluator:
     def __init__(
         self,
+        run_name: str,
         model_path: str,
         seed: int,
         sampling_params: SamplingParams,
@@ -26,6 +37,14 @@ class Evaluator:
     ):
         init_random_seed(seed)
         mute_ray_data()
+
+        init_wandb(
+            run_name,
+            dict(
+                temperature=1.0,
+                top_p=1.0,
+            ),
+        )
 
         # from unittest.mock import patch
         # world_size_patch = patch("torch.distributed.get_world_size", return_value=1)
@@ -43,40 +62,40 @@ class Evaluator:
         self.sampling_params = sampling_params
         self.eval_step = -1
 
-        self.__RESULT_BUFFER_SIZE = 100
         self.__RESULT_FILE_MIN_ROWS = 100
 
-    def evaluate(self, ds: ray.data.Dataset, batch_size: int = 4, result_path: str=None) -> dict[str, any]:
+    def evaluate(
+        self, ds: ray.data.Dataset, batch_size: int = 4, result_path: str = None
+    ) -> dict[str, any]:
         self.eval_step += 1
-        result = ray.data.from_items([])
         result_buffer = []
         for batch in tqdm(
             ds.iter_batches(batch_size=batch_size),
             total=(ds.count() + batch_size - 1) // batch_size,
-            desc=f"Eval | Step {self.eval_step}", leave=False
+            desc=f"Eval | Step {self.eval_step}",
+            leave=False,
         ):
             prompts = [
                 PROMPT_TEMPLATE.format(question=prob) for prob in batch["problem"]
             ]
             outputs = self.llm.generate(prompts, self.sampling_params, use_tqdm=False)
-            result_buffer.extend(log_generations(batch, outputs, self.sampling_params.logprobs or 0))
-            if len(result_buffer) >= self.__RESULT_BUFFER_SIZE:
-                result = result.union(ray.data.from_items(result_buffer))
-                result_buffer.clear()
+            result_buffer.extend(
+                log_generations(batch, outputs, self.sampling_params.logprobs or 0)
+            )
 
         if result_buffer:
-            result = result.union(ray.data.from_items(result_buffer))
+            result = ray.data.from_items(result_buffer)
             result_buffer.clear()
 
         analysis = analyse_result(result)
-        if wandb.run is not None:
-            wandb.log(
-                {
-                    "eval_step": self.eval_step,
-                    **{f"eval/{k}": v for k, v in analysis.items()},
-                }
-            )
+        wandb.log(
+            {
+                "eval_step": self.eval_step,
+                **{f"eval/{k}": v for k, v in analysis.items()},
+            }
+        )
         if result_path is not None:
+            os.makedirs(result_path, exist_ok=True)
             result.write_csv(result_path, min_rows_per_file=self.__RESULT_FILE_MIN_ROWS)
             json.dump(analysis, open(f"{result_path}/analysis.json", "w"))
             logger.info(
@@ -87,7 +106,6 @@ class Evaluator:
     def load_new_policy_weights(self, state_dict: dict[str, any]):
         llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
         llm_model.load_weights(state_dict.items())
-
 
 def log_generations(
     batch: dict[str, np.ndarray], outputs: list[RequestOutput], logprob_num: int
@@ -140,10 +158,10 @@ def analyse_result(ds: ray.data.Dataset) -> dict[str, any]:
     total_count = ds.count()
 
     # 条件过滤
-    correct_answer = ds.filter(lambda r: r["answer_reward"] == 1)
-    correct_format = ds.filter(lambda r: r["format_reward"] == 1)
-    wrong_answer = ds.filter(lambda r: r["answer_reward"] != 1)
-    wrong_format = ds.filter(lambda r: r["format_reward"] != 1)
+    correct_answer = ds.filter(expr="answer_reward == 1")
+    correct_format = ds.filter(expr="format_reward == 1")
+    wrong_answer = ds.filter(expr="answer_reward != 1")
+    wrong_format = ds.filter(expr="format_reward != 1")
 
     # 计算数量
     correct_answer_count = correct_answer.count()
@@ -164,9 +182,8 @@ def analyse_result(ds: ray.data.Dataset) -> dict[str, any]:
     wrong_format_avg_entropy = wrong_format.mean("entropy") or 0
 
     return {
-        "total_count": total_count,
-        "correct_answer_count": correct_answer_count,
-        "correct_format_count": correct_format_count,
+        "reward": correct_answer_count,
+        "format_reward": correct_format_count,
         "correct_answer_rate": (
             correct_answer_count / total_count if total_count > 0 else 0
         ),
@@ -188,8 +205,10 @@ def analyse_result(ds: ray.data.Dataset) -> dict[str, any]:
 
 # ===== 调用示例 =====
 if __name__ == "__main__":
+    run_name = f"run_{time.strftime('%Y%m%d_%H%M%S')}"
     ray.init()
     evaluator = Evaluator.remote(
+        run_name=run_name,
         model_path="./models/qwen2.5-math-1.5b",
         seed=42,
         sampling_params=SamplingParams(
@@ -201,13 +220,19 @@ if __name__ == "__main__":
             stop="</answer>",
             logprobs=10,  # 获取 top-10 logprobs
         ),
-        result_csv_path="./results/eval",
-        dtype="half",
-        # dtype=torch.bfloat16,
-        enable_prefix_caching=True,
-        # gpu_memory_utilization=0.95
+        # dtype="half",
+        dtype=torch.bfloat16,
+        # enable_prefix_caching=True,
+        gpu_memory_utilization=0.5,
     )
     ds = load_dataset("./datasets/eval/math")
-    ds = ds.limit(12)
-    _, analysis = ray.get(evaluator.evaluate.remote(ds, batch_size=4, result_csv_path="./artifacts/results/eval"))
+    model_state_dict, _, _, _ = load_checkpoint(
+        "./artifacts/checkpoints/sft_ckpt/checkpoint.pt"
+    )
+    ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
+    _, analysis = ray.get(
+        evaluator.evaluate.remote(
+            ds, batch_size=4, result_path="./artifacts/results/eval"
+        )
+    )
     logger.info(analysis)

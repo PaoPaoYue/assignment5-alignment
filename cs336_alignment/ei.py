@@ -122,7 +122,9 @@ def expert_sample(
     params: TrainParams,
 ):
     evaluator = params.evaluator
-    sampled = dataset.sample(params.ei_sample_num, seed=params.seed + ei_iteration * 1000)
+    total = dataset.count()
+    sampled = dataset.random_sample(params.ei_sample_num / total, seed=params.seed + ei_iteration * 1000)
+    logger.info(f"EI Iteration {ei_iteration}: Sampled {sampled.count()} examples for expert labeling.")
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     results, _ = ray.get(
         evaluator.evaluate.remote(

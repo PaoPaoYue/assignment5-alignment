@@ -41,7 +41,7 @@ class TrainParams:
 
     lr: float = 5e-5
     batch_size: int = 4
-    val_batch_size: int = 20
+    val_batch_size: int = 12
     ei_sample_batch: int = 500
     ei_sample_num: int = 4
     accumulate_steps: int = 4
@@ -263,7 +263,7 @@ def validate(
             ei_iteration,
             dataset,
             params.val_batch_size,
-            f"{params.valid_result_path}/ei_iteration_{ei_iteration}",
+            result_path=f"{params.valid_result_path}/ei_iteration_{ei_iteration}",
         )
     )
     return analysis
@@ -314,7 +314,7 @@ if __name__ == "__main__":
         ),
     )
     result = trainer.fit()
-    result.checkpoint.to_directory(os.path.abspath("./artifacts/checkpoints/sft_ckpt"))
+    result.checkpoint.to_directory(os.path.abspath("./artifacts/checkpoints/ei_ckpt"))
     logger.info(
-        f"Train finished, copy checkpoint from {result.checkpoint.path} to {os.path.abspath("./artifacts/checkpoints/sft_ckpt")}."
+        f"Train finished, copy checkpoint from {result.checkpoint.path} to {os.path.abspath("./artifacts/checkpoints/ei_ckpt")}."
     )

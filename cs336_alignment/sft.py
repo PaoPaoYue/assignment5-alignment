@@ -45,7 +45,7 @@ class TrainParams:
 
     lr: float = 5e-5
     batch_size: int = 4
-    val_batch_size: int = 4
+    val_batch_size: int = 12
     accumulate_steps: int = 4
     max_grad: float = 1
     optimizer_beta1: float = 0.9
@@ -264,7 +264,7 @@ def validate(
             step,
             dataset,
             params.val_batch_size,
-            f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
+            result_path=f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
         )
         return
     else:
@@ -274,7 +274,7 @@ def validate(
                 step,
                 dataset,
                 params.val_batch_size,
-                f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
+                result_path=f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
             )
         )
         return analysis

@@ -42,8 +42,8 @@ class TrainParams:
     lr: float = 5e-5
     batch_size: int = 4
     val_batch_size: int = 12
-    ei_sample_batch: int = 500
-    ei_sample_num: int = 4
+    ei_sample_batch: int = 512
+    ei_sample_num: int = 2
     accumulate_steps: int = 4
     max_grad: float = 1
     optimizer_beta1: float = 0.9
@@ -64,7 +64,7 @@ def train_model(config: dict[any, any]):
     init_random_seed(params.seed)
     mute_ray_data()
 
-    train_dataset, valid_dataset = load_dataset(params.train_dir_path), load_dataset(params.valid_dir_path)
+    train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(512), load_dataset(params.valid_dir_path)
     
     init_wandb(
         run_name=params.run_name,
@@ -308,7 +308,7 @@ if __name__ == "__main__":
             name=run_name,
             checkpoint_config=ray.train.CheckpointConfig(
                 num_to_keep=1,
-                checkpoint_score_attribute="eval/reward",
+                checkpoint_score_attribute="reward",
                 checkpoint_score_order="max",
             ),
         ),

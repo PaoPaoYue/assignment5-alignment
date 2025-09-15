@@ -318,7 +318,7 @@ if __name__ == "__main__":
             name=run_name,
             checkpoint_config=ray.train.CheckpointConfig(
                 num_to_keep=1,
-                checkpoint_score_attribute="eval/reward",
+                checkpoint_score_attribute="reward",
                 checkpoint_score_order="max",
             ),
         ),

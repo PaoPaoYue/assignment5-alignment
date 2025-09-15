@@ -1,3 +1,4 @@
+from copy import copy
 import json
 import logging
 from itertools import islice
@@ -69,9 +70,13 @@ class Evaluator:
         step: int,
         ds: ray.data.Dataset,
         batch_size: int = 4,
+        sample_n: int | None = None,
         result_path: str = None,
     ) -> dict[str, any]:
         result_buffer = []
+        sampling_params = copy(self.sampling_params)
+        if sample_n is not None:
+            sampling_params.n = sample_n
         for batch in tqdm(
             ds.iter_batches(batch_size=batch_size),
             total=(ds.count() + batch_size - 1) // batch_size,
@@ -81,9 +86,9 @@ class Evaluator:
             prompts = [
                 PROMPT_TEMPLATE.format(question=prob) for prob in batch["problem"]
             ]
-            outputs = self.llm.generate(prompts, self.sampling_params, use_tqdm=False)
+            outputs = self.llm.generate(prompts, sampling_params, use_tqdm=False)
             result_buffer.extend(
-                log_generations(batch, outputs, self.sampling_params.logprobs or 0)
+                log_generations(batch, outputs, sampling_params.logprobs or 0)
             )
 
         if result_buffer:

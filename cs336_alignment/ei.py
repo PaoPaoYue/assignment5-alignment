@@ -41,8 +41,9 @@ class TrainParams:
 
     lr: float = 5e-5
     batch_size: int = 4
-    val_batch_size: int = 4
-    ei_sample_num: int = 128
+    val_batch_size: int = 20
+    ei_sample_batch: int = 500
+    ei_sample_num: int = 4
     accumulate_steps: int = 4
     max_grad: float = 1
     optimizer_beta1: float = 0.9
@@ -104,7 +105,7 @@ def train_model(config: dict[any, any]):
             params,
         )
 
-        logger.info(f"Validation metrics at epoch {ei_iteration}: {val_metrics}")
+        logger.info(f"Validation metrics at iteration {ei_iteration}: {val_metrics}")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             torch.save(model_state_dict, os.path.join(tmpdir, "checkpoint.pt"))
@@ -123,7 +124,7 @@ def expert_sample(
 ):
     evaluator = params.evaluator
     total = dataset.count()
-    sampled = dataset.random_sample(params.ei_sample_num / total, seed=params.seed + ei_iteration * 1000)
+    sampled = dataset.random_sample(params.ei_sample_batch / total, seed=params.seed + ei_iteration * 1000)
     logger.info(f"EI Iteration {ei_iteration}: Sampled {sampled.count()} examples for expert labeling.")
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     results, _ = ray.get(
@@ -131,7 +132,8 @@ def expert_sample(
             "expert_sample",
             ei_iteration,
             sampled,
-            params.batch_size,
+            params.val_batch_size,
+            sample_n = params.ei_sample_num,
         )
     )
     return results.filter(expr="answer_reward == 1").select_columns(["problem", "response"])
@@ -274,7 +276,6 @@ if __name__ == "__main__":
         model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
         seed=42,
         sampling_params=SamplingParams(
-            n=4,
             temperature=1.0,
             top_p=1.0,
             max_tokens=1024,

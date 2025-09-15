@@ -75,7 +75,7 @@ def train_model(config: dict[any, any]):
         },
     )
 
-    model_state_dict, _, _, _ = load_checkpoint(params.sft_ckpt_path) 
+    model_state_dict, _, _, _ = load_checkpoint(f"{params.sft_ckpt_path}/checkpoint.pt")
 
     # ========= 训练循环（含早停与最优模型保存）=========
     for ei_iteration in range(1, params.ei_iterations + 1):

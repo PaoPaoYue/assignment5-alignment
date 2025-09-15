@@ -40,9 +40,10 @@ class TrainParams:
 
     seed: int = 42
 
-    ei_batch_size: int = 512
     lr: float = 5e-5
     batch_size: int = 4
+    val_batch_size: int = 4
+    ei_sample_num: int = 512
     accumulate_steps: int = 4
     max_grad: float = 1
     optimizer_beta1: float = 0.9
@@ -122,7 +123,7 @@ def expert_sample(
     params: TrainParams,
 ):
     evaluator = params.evaluator
-    sampled = dataset.sample(params.ei_batch_size, seed=params.seed + ei_iteration * 1000)
+    sampled = dataset.sample(params.ei_sample_num, seed=params.seed + ei_iteration * 1000)
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     results, _ = ray.get(
         evaluator.evaluate.remote(
@@ -254,7 +255,7 @@ def validate(
     _, analysis = ray.get(
         evaluator.evaluate.remote(
             dataset,
-            params.batch_size,
+            params.val_batch_size,
             f"{params.valid_result_path}/ei_iteration_{ei_iteration}",
         )
     )
@@ -268,6 +269,7 @@ if __name__ == "__main__":
         model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
         seed=42,
         sampling_params=SamplingParams(
+            n=4,
             temperature=1.0,
             top_p=1.0,
             max_tokens=1024,
@@ -275,6 +277,7 @@ if __name__ == "__main__":
             include_stop_str_in_output=True,
             stop="</answer>",
             logprobs=10,
+            seed=42,
         ),
         dtype=torch.bfloat16,
         # enable_prefix_caching=True,

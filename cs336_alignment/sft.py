@@ -46,6 +46,7 @@ class TrainParams:
 
     lr: float = 5e-5
     batch_size: int = 4
+    val_batch_size: int = 4
     accumulate_steps: int = 4
     max_grad: float = 1
     optimizer_beta1: float = 0.9
@@ -65,7 +66,7 @@ def train_model(config: dict[any, any]):
     mute_ray_data()
 
     train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(
-        1024
+        512
     ), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
@@ -121,13 +122,13 @@ def train_model(config: dict[any, any]):
             params,
         )
 
-        val_metrics = validate(
-            epoch,
-            model,
-            valid_dataset,
-            params,
-            step="full",
-        )
+        # val_metrics = validate(
+        #     epoch,
+        #     model,
+        #     valid_dataset,
+        #     params,
+        #     step="full",
+        # )
 
         logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
 
@@ -227,15 +228,15 @@ def train_one_epoch(
                 }
             )
 
-        if (i + 1) in params.valid_steps:
-            validate(
-                epoch,
-                model,
-                valid_dataset,
-                params,
-                step=(i + 1),
-                async_no_return=True,
-            )
+        # if (i + 1) in params.valid_steps:
+        #     validate(
+        #         epoch,
+        #         model,
+        #         valid_dataset,
+        #         params,
+        #         step=(i + 1),
+        #         async_no_return=True,
+        #     )
 
     return {
         "train/loss": running_loss / (i + 1),
@@ -258,7 +259,7 @@ def validate(
     if async_no_return:
         evaluator.evaluate.remote(
             dataset,
-            1,
+            params.val_batch_size,
             f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
         )
         return
@@ -266,7 +267,7 @@ def validate(
         _, analysis = ray.get(
             evaluator.evaluate.remote(
                 dataset,
-                1,
+                params.val_batch_size,
                 f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
             )
         )
@@ -275,26 +276,27 @@ def validate(
 
 if __name__ == "__main__":
     run_name = f"run_{time.strftime('%Y%m%d_%H%M%S')}"
-    evaluator = Evaluator.options(num_gpus=0.1).remote(
-        run_name=run_name,
-        model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
-        seed=42,
-        sampling_params=SamplingParams(
-            temperature=1.0,
-            top_p=1.0,
-            max_tokens=1024,
-            min_tokens=4,
-            include_stop_str_in_output=True,
-            stop="</answer>",
-            logprobs=10,
-        ),
-        dtype=torch.bfloat16,
-        # enable_prefix_caching=True,
-        gpu_memory_utilization=0.1,
-    )
+    # evaluator = Evaluator.options(num_gpus=0.1).remote(
+    #     run_name=run_name,
+    #     model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
+    #     seed=42,
+    #     sampling_params=SamplingParams(
+    #         temperature=1.0,
+    #         top_p=1.0,
+    #         max_tokens=1024,
+    #         min_tokens=4,
+    #         include_stop_str_in_output=True,
+    #         stop="</answer>",
+    #         logprobs=10,
+    #         seed=42,
+    #     ),
+    #     dtype=torch.bfloat16,
+    #     # enable_prefix_caching=True,
+    #     gpu_memory_utilization=0.1,
+    # )
     params = TrainParams(
         run_name=run_name,
-        evaluator=evaluator,
+        evaluator=None,
         model_dir_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
         train_dir_path=os.path.abspath("./datasets/train/math_12k/train"),
         valid_dir_path=os.path.abspath("./datasets/eval/math"),

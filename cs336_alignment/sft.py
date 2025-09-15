@@ -129,6 +129,10 @@ def train_model(config: dict[any, any]):
         #     params,
         #     step="full",
         # )
+        val_metrics = {
+            "val/reward": 0,
+            "val/format_reward": 0,
+        }
 
         logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
 

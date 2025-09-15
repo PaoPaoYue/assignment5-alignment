@@ -307,7 +307,7 @@ if __name__ == "__main__":
         run_config=ray.train.RunConfig(
             name=run_name,
             checkpoint_config=ray.train.CheckpointConfig(
-                num_to_keep=1,
+                num_to_keep=0,
                 checkpoint_score_attribute="reward",
                 checkpoint_score_order="max",
             ),

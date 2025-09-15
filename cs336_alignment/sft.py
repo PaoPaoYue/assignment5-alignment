@@ -36,7 +36,6 @@ class TrainParams:
     train_dir_path: str
     valid_dir_path: str
     valid_result_path: str
-    checkpoint_path: str
 
     valid_steps: list = field(
         default_factory=lambda: [32, 64, 128, 256]
@@ -305,7 +304,6 @@ if __name__ == "__main__":
         train_dir_path=os.path.abspath("./datasets/train/math_12k/train"),
         valid_dir_path=os.path.abspath("./datasets/eval/math"),
         valid_result_path=os.path.abspath("./artifacts/results/sft-valid"),
-        checkpoint_path=os.path.abspath("./artifacts/checkpoints/sft_ckpt"),
     )
     trainer = ray.train.torch.TorchTrainer(
         train_model,
@@ -323,7 +321,7 @@ if __name__ == "__main__":
         ),
     )
     result = trainer.fit()
-    result.checkpoint.to_directory(params.checkpoint_path)
+    result.checkpoint.to_directory(os.path.abspath("./artifacts/checkpoints/sft_ckpt"))
     logger.info(
-        f"Train finished, copy checkpoint from {result.checkpoint.path} to {params.checkpoint_path}."
+        f"Train finished, copy checkpoint from {result.checkpoint.path} to {os.path.abspath("./artifacts/checkpoints/sft_ckpt")}."
     )

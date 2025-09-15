@@ -60,19 +60,22 @@ class Evaluator:
             f"Evaluator initialized on device {ray.get_gpu_ids()} with model {model_path}"
         )
         self.sampling_params = sampling_params
-        self.eval_step = -1
 
         self.__RESULT_FILE_MIN_ROWS = 100
 
     def evaluate(
-        self, ds: ray.data.Dataset, batch_size: int = 4, result_path: str = None
+        self,
+        label: str,
+        step: int,
+        ds: ray.data.Dataset,
+        batch_size: int = 4,
+        result_path: str = None,
     ) -> dict[str, any]:
-        self.eval_step += 1
         result_buffer = []
         for batch in tqdm(
             ds.iter_batches(batch_size=batch_size),
             total=(ds.count() + batch_size - 1) // batch_size,
-            desc=f"Eval | Step {self.eval_step}",
+            desc=f"{label} | Step {step}",
             leave=False,
         ):
             prompts = [
@@ -90,7 +93,8 @@ class Evaluator:
         analysis = analyse_result(result)
         wandb.log(
             {
-                "eval_step": self.eval_step,
+                "label": label,
+                "eval_step": step,
                 **{f"eval/{k}": v for k, v in analysis.items()},
             }
         )
@@ -99,13 +103,14 @@ class Evaluator:
             result.write_csv(result_path, min_rows_per_file=self.__RESULT_FILE_MIN_ROWS)
             json.dump(analysis, open(f"{result_path}/analysis.json", "w"))
             logger.info(
-                f"Evaluator finished eval step {self.eval_step}, results saved to {result_path}"
+                f"Evaluator finished {label} step {step}, results saved to {result_path}"
             )
         return result, analysis
 
     def load_new_policy_weights(self, state_dict: dict[str, any]):
         llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
         llm_model.load_weights(state_dict.items())
+
 
 def log_generations(
     batch: dict[str, np.ndarray], outputs: list[RequestOutput], logprob_num: int

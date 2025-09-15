@@ -126,7 +126,7 @@ def train_model(config: dict[any, any]):
         #     model,
         #     valid_dataset,
         #     params,
-        #     step="full",
+        #     step=epoch*((train_dataset.count() + params.batch_size - 1) // params.batch_size),
         # )
         val_metrics = {
             "val/reward": 0,
@@ -237,7 +237,7 @@ def train_one_epoch(
         #         model,
         #         valid_dataset,
         #         params,
-        #         step=(i + 1),
+        #         step=total * epoch + (i + 1),
         #         async_no_return=True,
         #     )
 
@@ -253,14 +253,15 @@ def validate(
     model: nn.Module,
     dataset: ray.data.Dataset,
     params: TrainParams,
-    step: any,
+    step: int,
     async_no_return: bool = False,
 ) -> dict[str, float] | None:
     evaluator = params.evaluator
     ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
-    logger.info(f"Weights sync done, validating setp={step}")
     if async_no_return:
         evaluator.evaluate.remote(
+            "validation",
+            step,
             dataset,
             params.val_batch_size,
             f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
@@ -269,6 +270,8 @@ def validate(
     else:
         _, analysis = ray.get(
             evaluator.evaluate.remote(
+                "validation",
+                step,
                 dataset,
                 params.val_batch_size,
                 f"{params.valid_result_path}/epoch_{epoch}_step_{step}",

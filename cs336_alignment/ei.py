@@ -42,7 +42,7 @@ class TrainParams:
     lr: float = 5e-5
     batch_size: int = 4
     val_batch_size: int = 4
-    ei_sample_num: int = 512
+    ei_sample_num: int = 128
     accumulate_steps: int = 4
     max_grad: float = 1
     optimizer_beta1: float = 0.9
@@ -128,11 +128,13 @@ def expert_sample(
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     results, _ = ray.get(
         evaluator.evaluate.remote(
+            "expert_sample",
+            ei_iteration,
             sampled,
             params.batch_size,
         )
     )
-    return results.select_columns(["problem", "response"]).filter(expr="answer_reward == 1")
+    return results.filter(expr="answer_reward == 1").select_columns(["problem", "response"])
 
 
 def train_sft(
@@ -255,6 +257,8 @@ def validate(
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     _, analysis = ray.get(
         evaluator.evaluate.remote(
+            "validation",
+            ei_iteration,
             dataset,
             params.val_batch_size,
             f"{params.valid_result_path}/ei_iteration_{ei_iteration}",

@@ -107,10 +107,11 @@ def train_model(config: dict[any, any]):
 
         logger.info(f"Validation metrics at iteration {ei_iteration}: {val_metrics}")
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            torch.save(model_state_dict, os.path.join(tmpdir, "checkpoint.pt"))
-            checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
-            ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
+        # with tempfile.TemporaryDirectory() as tmpdir:
+        #     torch.save(model_state_dict, os.path.join(tmpdir, "checkpoint.pt"))
+        #     checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
+        #     ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
+        ray.train.report(metrics=val_metrics)
 
     wandb.finish()
 
@@ -307,7 +308,7 @@ if __name__ == "__main__":
         run_config=ray.train.RunConfig(
             name=run_name,
             checkpoint_config=ray.train.CheckpointConfig(
-                num_to_keep=0,
+                num_to_keep=1,
                 checkpoint_score_attribute="reward",
                 checkpoint_score_order="max",
             ),

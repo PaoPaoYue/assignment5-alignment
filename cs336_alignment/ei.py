@@ -188,7 +188,7 @@ def train_sft(
             prompt_strs = [
                 R1_ZERO_PROMPT.format(question=prob) for prob in batch["problem"]
             ]
-            output_strs = batch["response"]
+            output_strs = [str(test) for test in batch["response"]]
             input_tensors = tokenize_prompt_and_output(prompt_strs, output_strs, tokenizer)
 
             inputs = input_tensors["input_ids"].to("cuda", non_blocking=True)

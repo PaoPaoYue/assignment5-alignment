@@ -108,7 +108,7 @@ def train_model(config: dict[any, any]):
         f"Starting training with parameters: total_params={total_params}, trainable_params={trainable_params}"
     )
 
-    # ========= 训练循环（含早停与最优模型保存）=========
+    # ========= 训练循环（最优模型保存）=========
     for epoch in range(1, params.num_epochs + 1):
         _ = train_one_epoch(
             epoch,

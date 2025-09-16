@@ -45,7 +45,6 @@ def init_wandb(run_name, config: dict[str, any]):
     wandb.define_metric("eval/format_reward", summary="max")
 
 
-
 def mute_ray_data():
     logging.getLogger("ray.data").setLevel(logging.ERROR)
     DataContext.get_current().enable_progress_bars = False

@@ -36,7 +36,6 @@ class TrainParams:
     train_dir_path: str
     valid_dir_path: str
     valid_result_path: str
-    checkpoint_path: str
 
     valid_steps: list = field(
         default_factory=lambda: [32, 64, 128, 256]
@@ -46,6 +45,7 @@ class TrainParams:
 
     lr: float = 5e-5
     batch_size: int = 4
+    val_batch_size: int = 12
     accumulate_steps: int = 4
     max_grad: float = 1
     optimizer_beta1: float = 0.9
@@ -58,9 +58,6 @@ class TrainParams:
     schduler_warmup_lr_factor: float = 0
 
     num_epochs: int = 1
-    patience: int = 1
-    min_delta: int = 1e-4
-
 
 def train_model(config: dict[any, any]):
     params = TrainParams(**config)
@@ -68,7 +65,7 @@ def train_model(config: dict[any, any]):
     mute_ray_data()
 
     train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(
-        1024
+        512
     ), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
@@ -111,7 +108,7 @@ def train_model(config: dict[any, any]):
         f"Starting training with parameters: total_params={total_params}, trainable_params={trainable_params}"
     )
 
-    # ========= 训练循环（含早停与最优模型保存）=========
+    # ========= 训练循环（最优模型保存）=========
     for epoch in range(1, params.num_epochs + 1):
         _ = train_one_epoch(
             epoch,
@@ -124,13 +121,17 @@ def train_model(config: dict[any, any]):
             params,
         )
 
-        val_metrics = validate(
-            epoch,
-            model,
-            valid_dataset,
-            params,
-            step="full",
-        )
+        # val_metrics = validate(
+        #     epoch,
+        #     model,
+        #     valid_dataset,
+        #     params,
+        #     step=epoch*((train_dataset.count() + params.batch_size - 1) // params.batch_size),
+        # )
+        val_metrics = {
+            "val/reward": 0,
+            "val/format_reward": 0,
+        }
 
         logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
 
@@ -230,15 +231,15 @@ def train_one_epoch(
                 }
             )
 
-        if (i + 1) in params.valid_steps:
-            validate(
-                epoch,
-                model,
-                valid_dataset,
-                params,
-                step=(i + 1),
-                async_no_return=True,
-            )
+        # if (i + 1) in params.valid_steps:
+        #     validate(
+        #         epoch,
+        #         model,
+        #         valid_dataset,
+        #         params,
+        #         step=total * epoch + (i + 1),
+        #         async_no_return=True,
+        #     )
 
     return {
         "train/loss": running_loss / (i + 1),
@@ -252,25 +253,28 @@ def validate(
     model: nn.Module,
     dataset: ray.data.Dataset,
     params: TrainParams,
-    step: any,
+    step: int,
     async_no_return: bool = False,
 ) -> dict[str, float] | None:
     evaluator = params.evaluator
     ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
-    logger.info(f"Weights sync done, validating setp={step}")
     if async_no_return:
         evaluator.evaluate.remote(
+            "validation",
+            step,
             dataset,
-            1,
-            f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
+            params.val_batch_size,
+            result_path=f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
         )
         return
     else:
         _, analysis = ray.get(
             evaluator.evaluate.remote(
+                "validation",
+                step,
                 dataset,
-                1,
-                f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
+                params.val_batch_size,
+                result_path=f"{params.valid_result_path}/epoch_{epoch}_step_{step}",
             )
         )
         return analysis
@@ -278,31 +282,31 @@ def validate(
 
 if __name__ == "__main__":
     run_name = f"run_{time.strftime('%Y%m%d_%H%M%S')}"
-    evaluator = Evaluator.options(num_gpus=0.1).remote(
-        run_name=run_name,
-        model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
-        seed=42,
-        sampling_params=SamplingParams(
-            temperature=1.0,
-            top_p=1.0,
-            max_tokens=1024,
-            min_tokens=4,
-            include_stop_str_in_output=True,
-            stop="</answer>",
-            logprobs=10,
-        ),
-        dtype=torch.bfloat16,
-        # enable_prefix_caching=True,
-        gpu_memory_utilization=0.1,
-    )
+    # evaluator = Evaluator.options(num_gpus=0.1).remote(
+    #     run_name=run_name,
+    #     model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
+    #     seed=42,
+    #     sampling_params=SamplingParams(
+    #         temperature=1.0,
+    #         top_p=1.0,
+    #         max_tokens=1024,
+    #         min_tokens=4,
+    #         include_stop_str_in_output=True,
+    #         stop="</answer>",
+    #         logprobs=10,
+    #         seed=42,
+    #     ),
+    #     dtype=torch.bfloat16,
+    #     # enable_prefix_caching=True,
+    #     gpu_memory_utilization=0.1,
+    # )
     params = TrainParams(
         run_name=run_name,
-        evaluator=evaluator,
+        evaluator=None,
         model_dir_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
         train_dir_path=os.path.abspath("./datasets/train/math_12k/train"),
         valid_dir_path=os.path.abspath("./datasets/eval/math"),
         valid_result_path=os.path.abspath("./artifacts/results/sft-valid"),
-        checkpoint_path=os.path.abspath("./artifacts/checkpoints/sft_ckpt"),
     )
     trainer = ray.train.torch.TorchTrainer(
         train_model,
@@ -314,13 +318,13 @@ if __name__ == "__main__":
             name=run_name,
             checkpoint_config=ray.train.CheckpointConfig(
                 num_to_keep=1,
-                checkpoint_score_attribute="eval/reward",
+                checkpoint_score_attribute="reward",
                 checkpoint_score_order="max",
             ),
         ),
     )
     result = trainer.fit()
-    result.checkpoint.to_directory(params.checkpoint_path)
+    result.checkpoint.to_directory(os.path.abspath("./artifacts/checkpoints/sft_ckpt"))
     logger.info(
-        f"Train finished, copy checkpoint from {result.checkpoint.path} to {params.checkpoint_path}."
+        f"Train finished, copy checkpoint from {result.checkpoint.path} to {os.path.abspath("./artifacts/checkpoints/sft_ckpt")}."
     )

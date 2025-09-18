@@ -101,7 +101,6 @@ def train_model(config: dict[any, any]):
             "max_grad": params.max_grad,
         },
     )
-    wandb.watch(model, log="all", log_freq=200)
 
     total_params, trainable_params = get_model_size(model)
     logger.info(
@@ -110,7 +109,7 @@ def train_model(config: dict[any, any]):
 
     # ========= 训练循环（最优模型保存）=========
     for epoch in range(1, params.num_epochs + 1):
-        _ = train_one_epoch(
+        model_state_dict = train_one_epoch(
             epoch,
             model,
             tokenizer,
@@ -121,17 +120,15 @@ def train_model(config: dict[any, any]):
             params,
         )
 
-        # val_metrics = validate(
-        #     epoch,
-        #     model,
-        #     valid_dataset,
-        #     params,
-        #     step=epoch*((train_dataset.count() + params.batch_size - 1) // params.batch_size),
-        # )
-        val_metrics = {
-            "val/reward": 0,
-            "val/format_reward": 0,
-        }
+        torch.cuda.empty_cache()
+
+        val_metrics = validate(
+            epoch,
+            model_state_dict,
+            valid_dataset,
+            params,
+            step=epoch*((train_dataset.count() + params.batch_size - 1) // params.batch_size),
+        )
 
         logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
 
@@ -145,6 +142,8 @@ def train_model(config: dict[any, any]):
             )
             checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
             ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
+
+    ray.get(params.evaluator.close.remote())
     wandb.finish()
 
 
@@ -232,6 +231,7 @@ def train_one_epoch(
             )
 
         # if (i + 1) in params.valid_steps:
+        #     torch.cuda.empty_cache()
         #     validate(
         #         epoch,
         #         model,
@@ -241,23 +241,20 @@ def train_one_epoch(
         #         async_no_return=True,
         #     )
 
-    return {
-        "train/loss": running_loss / (i + 1),
-        "train/entropy": running_entropy / (i + 1),
-    }
+    return model.state_dict()
 
 
 @torch.no_grad()
 def validate(
     epoch: int,
-    model: nn.Module,
+    state_dict: dict[str, torch.Tensor],
     dataset: ray.data.Dataset,
     params: TrainParams,
     step: int,
     async_no_return: bool = False,
 ) -> dict[str, float] | None:
     evaluator = params.evaluator
-    ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
+    ray.get(evaluator.load_new_policy_weights.remote(state_dict))
     if async_no_return:
         evaluator.evaluate.remote(
             "validation",
@@ -282,27 +279,27 @@ def validate(
 
 if __name__ == "__main__":
     run_name = f"run_{time.strftime('%Y%m%d_%H%M%S')}"
-    # evaluator = Evaluator.options(num_gpus=0.1).remote(
-    #     run_name=run_name,
-    #     model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
-    #     seed=42,
-    #     sampling_params=SamplingParams(
-    #         temperature=1.0,
-    #         top_p=1.0,
-    #         max_tokens=1024,
-    #         min_tokens=4,
-    #         include_stop_str_in_output=True,
-    #         stop="</answer>",
-    #         logprobs=10,
-    #         seed=42,
-    #     ),
-    #     dtype=torch.bfloat16,
-    #     # enable_prefix_caching=True,
-    #     gpu_memory_utilization=0.1,
-    # )
+    evaluator = Evaluator.options(num_gpus=0.1).remote(
+        run_name=run_name,
+        model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
+        seed=42,
+        sampling_params=SamplingParams(
+            temperature=1.0,
+            top_p=1.0,
+            max_tokens=1024,
+            min_tokens=4,
+            include_stop_str_in_output=True,
+            stop="</answer>",
+            logprobs=10,
+            seed=42,
+        ),
+        dtype=torch.bfloat16,
+        # enable_prefix_caching=True,
+        gpu_memory_utilization=0.1,
+    )
     params = TrainParams(
         run_name=run_name,
-        evaluator=None,
+        evaluator=evaluator,
         model_dir_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
         train_dir_path=os.path.abspath("./datasets/train/math_12k/train"),
         valid_dir_path=os.path.abspath("./datasets/eval/math"),

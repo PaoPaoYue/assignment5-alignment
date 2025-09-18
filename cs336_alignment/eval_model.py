@@ -116,6 +116,8 @@ class Evaluator:
         llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
         llm_model.load_weights(state_dict.items())
 
+    def close(self):
+        wandb.finish()
 
 def log_generations(
     batch: dict[str, np.ndarray], outputs: list[RequestOutput], logprob_num: int

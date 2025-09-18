@@ -66,6 +66,35 @@ def train_model(config: dict[any, any]):
 
     train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(512), load_dataset(params.valid_dir_path)
     
+    model_state_dict, _, _, _ = load_checkpoint(f"{params.sft_ckpt_path}/checkpoint.pt")
+
+    model = AutoModelForCausalLM.from_pretrained(
+        params.model_dir_path,
+        torch_dtype=torch.bfloat16,
+        attn_implementation="flash_attention_2",
+        trust_remote_code=True,
+    )
+    model.load_state_dict(model_state_dict, strict=True)
+    model = ray.train.torch.prepare_model(model)
+    tokenizer = AutoTokenizer.from_pretrained(
+        params.model_dir_path, trust_remote_code=True
+    )
+    optimizer = AdamW(
+        model.parameters(),
+        lr=params.lr,
+        betas=(params.optimizer_beta1, params.optimizer_beta2),
+        weight_decay=params.optimizer_weight_decay,
+    )
+    scheduler = CosineAnnealingWithPrewarmRestarts(
+        optimizer,
+        T_0=params.scheduler_t,
+        T_warmup=params.scheduler_t_warmup,
+        T_mult=params.scheduler_t_mult,
+        eta_min=params.scheduler_min_lr,
+        eta_warmup_factor=params.schduler_warmup_lr_factor,
+    )
+
+
     init_wandb(
         run_name=params.run_name,
         config={
@@ -75,8 +104,6 @@ def train_model(config: dict[any, any]):
             "max_grad": params.max_grad,
         },
     )
-
-    model_state_dict, _, _, _ = load_checkpoint(f"{params.sft_ckpt_path}/checkpoint.pt")
 
     # ========= 训练循环（最优模型保存）=========
     for ei_iteration in range(1, params.ei_iterations + 1):
@@ -91,8 +118,11 @@ def train_model(config: dict[any, any]):
 
         model_state_dict = train_sft(
             ei_iteration,
-            model_state_dict,
+            model,
+            tokenizer,
             expert_sampled,
+            optimizer,
+            scheduler,
             params,
         )
 
@@ -113,6 +143,7 @@ def train_model(config: dict[any, any]):
         #     ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
         ray.train.report(metrics=val_metrics)
 
+    ray.get(params.evaluator.close.remote())
     wandb.finish()
 
 
@@ -142,37 +173,13 @@ def expert_sample(
 
 def train_sft(
     ei_iteration: int,
-    model_state_dict: dict[str, torch.Tensor],
+    model: nn.Module,
+    tokenizer: AutoTokenizer,
     dataset: ray.data.Dataset,
+    optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.LRScheduler,
     params: TrainParams,
 ) -> dict[str, float]:
-    model = AutoModelForCausalLM.from_pretrained(
-        params.model_dir_path,
-        torch_dtype=torch.bfloat16,
-        attn_implementation="flash_attention_2",
-        trust_remote_code=True,
-    )
-    if model_state_dict is not None:
-        model.load_state_dict(model_state_dict, strict=True)
-    model = ray.train.torch.prepare_model(model)
-    tokenizer = AutoTokenizer.from_pretrained(
-        params.model_dir_path, trust_remote_code=True
-    )
-    optimizer = AdamW(
-        model.parameters(),
-        lr=params.lr,
-        betas=(params.optimizer_beta1, params.optimizer_beta2),
-        weight_decay=params.optimizer_weight_decay,
-    )
-    scheduler = CosineAnnealingWithPrewarmRestarts(
-        optimizer,
-        T_0=params.scheduler_t,
-        T_warmup=params.scheduler_t_warmup,
-        T_mult=params.scheduler_t_mult,
-        eta_min=params.scheduler_min_lr,
-        eta_warmup_factor=params.schduler_warmup_lr_factor,
-    )
-
     model.train()
     running_loss = 0.0
     running_entropy = 0.0
@@ -245,8 +252,7 @@ def train_sft(
                     }
                 )
 
-    state_dict_cpu = {k: v.cpu() for k, v in model.state_dict().items()}
-    return state_dict_cpu
+    return model.state_dict()
 
 
 @torch.no_grad()

@@ -177,7 +177,7 @@ def sample_rollout(
     total = dataset.count()
     sampled = dataset.random_sample(
         params.n_prompts_per_rollout_batch / total, seed=params.seed + grpo_step * 1000
-    ).take(params.n_prompts_per_rollout_batch)
+    ).limit(params.n_prompts_per_rollout_batch)
     assert sampled.count() == params.n_prompts_per_rollout_batch
     logger.info(
         f"GRPO step {grpo_step}: Sampled {sampled.count()} examples for training."

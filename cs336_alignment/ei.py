@@ -160,7 +160,8 @@ def expert_sample(
 ):
     evaluator = params.evaluator
     total = dataset.count()
-    sampled = dataset.random_sample(params.ei_sample_batch / total, seed=params.seed + ei_iteration * 1000)
+    sampled = dataset.random_sample(params.ei_sample_batch / total, seed=params.seed + ei_iteration * 1000).take(params.ei_sample_batch)
+    assert sampled.count() == params.ei_sample_batch
     logger.info(f"EI Iteration {ei_iteration}: Sampled {sampled.count()} examples for expert labeling.")
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     results, _ = ray.get(

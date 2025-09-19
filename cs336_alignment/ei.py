@@ -59,7 +59,7 @@ class TrainParams:
 
     ei_iterations: int = 3
     val_iteration_freq: int = 1
-    sft_epochs: int = 2
+    sft_epochs: int = 1
 
 
 def train_model(config: dict[any, any]):

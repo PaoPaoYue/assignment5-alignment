@@ -312,8 +312,7 @@ if __name__ == "__main__":
                 num_to_keep=1,
                 checkpoint_score_attribute="reward",
                 checkpoint_score_order="max",
-            ),
-            global_checkpoint_period_s=0
+            )
         ),
     )
     result = trainer.fit()

@@ -326,7 +326,7 @@ if __name__ == "__main__":
         ),
     )
     result = trainer.fit()
-    result.checkpoint.to_directory(os.path.abspath("./artifacts/checkpoints/ei_ckpt"))
-    logger.info(
-        f"Train finished, copy checkpoint from {result.checkpoint.path} to {os.path.abspath("./artifacts/checkpoints/ei_ckpt")}."
-    )
+    # result.checkpoint.to_directory(os.path.abspath("./artifacts/checkpoints/ei_ckpt"))
+    # logger.info(
+    #     f"Train finished, copy checkpoint from {result.checkpoint.path} to {os.path.abspath("./artifacts/checkpoints/ei_ckpt")}."
+    # )

@@ -316,7 +316,8 @@ if __name__ == "__main__":
         ),
     )
     result = trainer.fit()
-    result.checkpoint.to_directory(os.path.abspath("./artifacts/checkpoints/sft_ckpt"))
+    best_ckpt, best_metrics = result.best_checkpoints[0]
+    best_ckpt.to_directory(os.path.abspath("./artifacts/checkpoints/sft_ckpt"))
     logger.info(
-        f"Train finished, copy checkpoint from {result.checkpoint.path} to {os.path.abspath("./artifacts/checkpoints/sft_ckpt")}."
+        f"Train finished with metrics {best_metrics}, saved checkpoint to {os.path.abspath("./artifacts/checkpoints/sft_ckpt")}."
     )

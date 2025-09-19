@@ -37,7 +37,7 @@ class TrainParams:
     valid_dir_path: str
     valid_result_path: str
 
-    train_cases: int = 256
+    train_cases: int = 512
 
     valid_steps: list = field(
         default_factory=lambda: [64, 128, 256, 512]
@@ -106,11 +106,6 @@ def train_model(config: dict[any, any]):
         },
     )
 
-    total_params, trainable_params = get_model_size(model)
-    logger.info(
-        f"Starting training with parameters: total_params={total_params}, trainable_params={trainable_params}"
-    )
-
     # ========= 训练循环（最优模型保存）=========
     for epoch in range(1, params.num_epochs + 1):
         model_state_dict = train_one_epoch(
@@ -136,8 +131,6 @@ def train_model(config: dict[any, any]):
             params,
             step=epoch*((train_dataset.count() + params.batch_size - 1) // params.batch_size),
         )
-
-        logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             torch.save(model.state_dict(), os.path.join(tmpdir, "checkpoint.pt"))
@@ -320,6 +313,7 @@ if __name__ == "__main__":
                 checkpoint_score_attribute="reward",
                 checkpoint_score_order="max",
             ),
+            global_checkpoint_period_s=0
         ),
     )
     result = trainer.fit()

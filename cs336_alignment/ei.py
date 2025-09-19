@@ -37,14 +37,14 @@ class TrainParams:
     valid_dir_path: str
     valid_result_path: str
 
-    train_cases: int = 256
+    train_cases: int = 512
 
     seed: int = 42
 
     lr: float = 5e-5
     batch_size: int = 2
     val_batch_size: int = 12
-    ei_sample_batch: int = 256
+    ei_sample_batch: int = 512
     ei_sample_num: int = 2
     accumulate_steps: int = 8
     max_grad: float = 1
@@ -99,7 +99,6 @@ def train_model(config: dict[any, any]):
         eta_warmup_factor=params.schduler_warmup_lr_factor,
     )
 
-
     init_wandb(
         run_name=params.run_name,
         config={
@@ -142,8 +141,6 @@ def train_model(config: dict[any, any]):
             valid_dataset,
             params,
         )
-
-        logger.info(f"Validation metrics at iteration {ei_iteration}: {val_metrics}")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             torch.save(model_state_dict, os.path.join(tmpdir, "checkpoint.pt"))

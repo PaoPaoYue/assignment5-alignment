@@ -40,7 +40,7 @@ class TrainParams:
     valid_dir_path: str
     valid_result_path: str
 
-    train_cases: int = 256
+    train_cases: int = 512
 
     seed: int = 42
 
@@ -155,8 +155,6 @@ def train_model(config: dict[any, any]):
             valid_dataset,
             params,
         )
-
-        logger.info(f"Validation metrics at grpo step {grpo_step}: {val_metrics}")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             torch.save(model_state_dict, os.path.join(tmpdir, "checkpoint.pt"))

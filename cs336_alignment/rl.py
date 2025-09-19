@@ -35,10 +35,12 @@ class TrainParams:
     evaluator: Evaluator
 
     model_dir_path: str
-    sft_ckpt_path: str
+    ckpt_path: str
     train_dir_path: str
     valid_dir_path: str
     valid_result_path: str
+
+    train_cases: int = 256
 
     seed: int = 42
 
@@ -88,10 +90,10 @@ def train_model(config: dict[any, any]):
     mute_ray_data()
 
     train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(
-        512
+        params.train_cases
     ), load_dataset(params.valid_dir_path)
 
-    model_state_dict, _, _, _ = load_checkpoint(f"{params.sft_ckpt_path}/checkpoint.pt")
+    model_state_dict= torch.load(f"{params.ckpt_path}/checkpoint.pt",weight_only=False)
 
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
@@ -156,11 +158,10 @@ def train_model(config: dict[any, any]):
 
         logger.info(f"Validation metrics at grpo step {grpo_step}: {val_metrics}")
 
-        # with tempfile.TemporaryDirectory() as tmpdir:
-        #     torch.save(model_state_dict, os.path.join(tmpdir, "checkpoint.pt"))
-        #     checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
-        #     ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
-        ray.train.report(metrics=val_metrics)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            torch.save(model_state_dict, os.path.join(tmpdir, "checkpoint.pt"))
+            checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
+            ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
 
     ray.get(params.evaluator.close.remote())
     wandb.finish()
@@ -367,7 +368,7 @@ if __name__ == "__main__":
         run_name=run_name,
         evaluator=evaluator,
         model_dir_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
-        sft_ckpt_path=os.path.abspath("./artifacts/checkpoints/sft_ckpt"),
+        ckpt_path=os.path.abspath("./artifacts/checkpoints/ei_ckpt"),
         train_dir_path=os.path.abspath("./datasets/train/math_12k/train"),
         valid_dir_path=os.path.abspath("./datasets/eval/math"),
         valid_result_path=os.path.abspath("./artifacts/results/rl-valid"),
@@ -388,7 +389,7 @@ if __name__ == "__main__":
         ),
     )
     result = trainer.fit()
-    # result.checkpoint.to_directory(os.path.abspath("./artifacts/checkpoints/rl_ckpt"))
-    # logger.info(
-    #     f"Train finished, copy checkpoint from {result.checkpoint.path} to {os.path.abspath("./artifacts/checkpoints/rl_ckpt")}."
-    # )
+    result.checkpoint.to_directory(os.path.abspath("./artifacts/checkpoints/rl_ckpt"))
+    logger.info(
+        f"Train finished, copy checkpoint from {result.checkpoint.path} to {os.path.abspath("./artifacts/checkpoints/rl_ckpt")}."
+    )

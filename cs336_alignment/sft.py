@@ -37,6 +37,8 @@ class TrainParams:
     valid_dir_path: str
     valid_result_path: str
 
+    train_cases: int = 256
+
     valid_steps: list = field(
         default_factory=lambda: [64, 128, 256, 512]
     )  # step = count / batch_size, default counts=[128, 256, 512, 1024]
@@ -57,15 +59,18 @@ class TrainParams:
     scheduler_min_lr: float = 0
     schduler_warmup_lr_factor: float = 0
 
-    num_epochs: int = 10
+    num_epochs: int = 16
     val_epoch_freq: int = 20
+    val_epoch_min: int = 10
 
 def train_model(config: dict[any, any]):
     params = TrainParams(**config)
     init_random_seed(params.seed)
     mute_ray_data()
 
-    train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(512), load_dataset(params.valid_dir_path)
+    train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(
+        params.train_cases
+    ), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
         torch_dtype=torch.bfloat16,
@@ -119,7 +124,7 @@ def train_model(config: dict[any, any]):
             params,
         )
 
-        if epoch % params.val_epoch_freq != 0 and epoch != params.num_epochs:
+        if epoch % params.val_epoch_freq != 0 and epoch != params.num_epochs and epoch < params.val_epoch_min:
             continue
 
         torch.cuda.empty_cache()
@@ -134,17 +139,10 @@ def train_model(config: dict[any, any]):
 
         logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
 
-        # with tempfile.TemporaryDirectory() as tmpdir:
-        #     save_checkpoint(
-        #         os.path.join(tmpdir, "checkpoint.pt"),
-        #         model,
-        #         optimizer,
-        #         scheduler,
-        #         epoch=epoch + 1,
-        #     )
-        #     checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
-        #     ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
-        ray.train.report(metrics=val_metrics)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            torch.save(model.state_dict(), os.path.join(tmpdir, "checkpoint.pt"))
+            checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
+            ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
 
     ray.get(params.evaluator.close.remote())
     wandb.finish()

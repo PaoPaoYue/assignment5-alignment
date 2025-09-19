@@ -227,8 +227,8 @@ def train_one_epoch(
                     + i // params.accumulate_steps
                     + 1,
                     "train/lr": scheduler.get_last_lr()[0],
-                    "train/loss": running_loss / (i + 1),
-                    "train/entropy": running_entropy / (i + 1),
+                    "train/loss": loss.item() * params.accumulate_steps,
+                    "train/entropy": per_token_entropy.item(),
                 }
             )
 

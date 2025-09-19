@@ -306,8 +306,8 @@ def grpo_train(
                     "train_step": (epoch - 1) * total
                     + i // params.accumulate_steps
                     + 1,
-                    "train/loss": running_loss / (i + 1),
-                    "train/entropy": running_entropy / (i + 1),
+                    "train/loss": loss.item() * params.accumulate_steps,
+                    "train/entropy": per_token_entropy.item(),
                 }
                 if "group_means" in batch:
                     report["train/group_means"] = batch["group_means"].mean()

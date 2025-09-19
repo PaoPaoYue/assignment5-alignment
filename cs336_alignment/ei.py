@@ -55,8 +55,8 @@ class TrainParams:
     scheduler_min_lr: float = 0
     schduler_warmup_lr_factor: float = 0
 
-    ei_iterations: int = 5
-    val_iteration_freq: int = 10
+    ei_iterations: int = 3
+    val_iteration_freq: int = 1
     sft_epochs: int = 1
 
 
@@ -251,8 +251,8 @@ def train_sft(
                         + i // params.accumulate_steps
                         + 1,
                         "train/lr": scheduler.get_last_lr()[0],
-                        "train/loss": running_loss / (i + 1),
-                        "train/entropy": running_entropy / (i + 1),
+                        "train/loss": loss.item() * params.accumulate_steps,
+                        "train/entropy": per_token_entropy.item(),
                     }
                 )
 

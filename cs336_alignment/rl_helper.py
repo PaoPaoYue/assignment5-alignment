@@ -40,14 +40,14 @@ def add_group_normalized_rewards_to_rollout(
 
     raw_rewards = list(row["reward"] for row in rollout.iter_rows())
     raw_rewards = torch.tensor(raw_rewards, dtype=torch.float32)
-    group_means = raw_rewards.view(-1, group_size).mean(dim=1).repeat_interleave(group_size).item()
+    group_means = raw_rewards.view(-1, group_size).mean(dim=1).repeat_interleave(group_size)
     if normalize_by_std:
-        group_stds = raw_rewards.view(-1, group_size).std(dim=1).repeat_interleave(group_size).item()
+        group_stds = raw_rewards.view(-1, group_size).std(dim=1).repeat_interleave(group_size)
         normalized_rewards = (raw_rewards - group_means) / (group_stds + advantage_eps)
-        return rollout.zip(ray.data.from_items([{"advantage": adv.item(), "group_means": mean, "group_stds": std} for adv, mean, std in zip(normalized_rewards, group_means, group_stds)]))
+        return rollout.zip(ray.data.from_items([{"advantage": adv.item(), "group_means": mean.item(), "group_stds": std.item()} for adv, mean, std in zip(normalized_rewards, group_means, group_stds)]))
     else:
         normalized_rewards = raw_rewards - group_means
-        return rollout.zip(ray.data.from_items([{"advantage": adv.item(), "group_means": mean} for adv, mean in zip(normalized_rewards, group_means)]))
+        return rollout.zip(ray.data.from_items([{"advantage": adv.item(), "group_means": mean.item()} for adv, mean in zip(normalized_rewards, group_means)]))
 
 def compute_naive_policy_gradient_loss(
     raw_rewards_or_advantages: torch.Tensor,

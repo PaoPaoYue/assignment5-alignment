@@ -63,7 +63,7 @@ class TrainParams:
     optimizer_beta2: float = 0.95
     optimizer_weight_decay: float = 0.0
 
-    n_grpo_steps: int = 2000
+    n_grpo_steps: int = 30
     val_step_freq: int = 10
     epochs_per_rollout_batch: int = 1
 

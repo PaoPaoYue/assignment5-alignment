@@ -57,8 +57,8 @@ class TrainParams:
     scheduler_min_lr: float = 0
     schduler_warmup_lr_factor: float = 0
 
-    num_epochs: int = 8
-    val_epoch_freq: int = 10
+    num_epochs: int = 11
+    val_epoch_freq: int = 20
 
 def train_model(config: dict[any, any]):
     params = TrainParams(**config)
@@ -134,16 +134,17 @@ def train_model(config: dict[any, any]):
 
         logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            save_checkpoint(
-                os.path.join(tmpdir, "checkpoint.pt"),
-                model,
-                optimizer,
-                scheduler,
-                epoch=epoch + 1,
-            )
-            checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
-            ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
+        # with tempfile.TemporaryDirectory() as tmpdir:
+        #     save_checkpoint(
+        #         os.path.join(tmpdir, "checkpoint.pt"),
+        #         model,
+        #         optimizer,
+        #         scheduler,
+        #         epoch=epoch + 1,
+        #     )
+        #     checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
+        #     ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
+        ray.train.report(metrics=val_metrics)
 
     ray.get(params.evaluator.close.remote())
     wandb.finish()

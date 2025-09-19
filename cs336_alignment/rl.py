@@ -47,7 +47,6 @@ class TrainParams:
     group_size: int = 8
     train_batch_size: int = 256
     val_batch_size: int = 12
-    val_steps: int = 10
     accumulate_steps: int = 128
     max_grad: float = 1
     loss_type: Literal[
@@ -63,6 +62,7 @@ class TrainParams:
     optimizer_weight_decay: float = 0.0
 
     n_grpo_steps: int = 2000
+    val_step_freq: int = 10
     epochs_per_rollout_batch: int = 1
 
     def __post_init__(self):
@@ -145,7 +145,7 @@ def train_model(config: dict[any, any]):
 
         torch.cuda.empty_cache()
 
-        if grpo_step % params.val_steps != 0 and grpo_step != params.n_grpo_steps:
+        if grpo_step % params.val_step_freq != 0 and grpo_step != params.n_grpo_steps:
             continue
 
         val_metrics = validate(

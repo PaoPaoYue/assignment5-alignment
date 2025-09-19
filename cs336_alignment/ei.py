@@ -56,6 +56,7 @@ class TrainParams:
     schduler_warmup_lr_factor: float = 0
 
     ei_iterations: int = 5
+    val_iteration_freq: int = 10
     sft_epochs: int = 1
 
 
@@ -127,6 +128,9 @@ def train_model(config: dict[any, any]):
         )
 
         torch.cuda.empty_cache()
+
+        if ei_iteration % params.val_iteration_freq != 0 and ei_iteration != params.ei_iterations:
+            continue
 
         val_metrics = validate(
             ei_iteration,

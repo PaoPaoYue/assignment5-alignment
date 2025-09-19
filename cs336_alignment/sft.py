@@ -58,15 +58,14 @@ class TrainParams:
     schduler_warmup_lr_factor: float = 0
 
     num_epochs: int = 1
+    val_epoch_freq: int = 10
 
 def train_model(config: dict[any, any]):
     params = TrainParams(**config)
     init_random_seed(params.seed)
     mute_ray_data()
 
-    train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(
-        512
-    ), load_dataset(params.valid_dir_path)
+    train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(512), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
         torch_dtype=torch.bfloat16,
@@ -119,6 +118,9 @@ def train_model(config: dict[any, any]):
             scheduler,
             params,
         )
+
+        if epoch % params.val_epoch_freq != 0 and epoch != params.num_epochs:
+            continue
 
         torch.cuda.empty_cache()
 

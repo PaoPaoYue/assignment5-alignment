@@ -82,6 +82,10 @@ class TrainParams:
         self.n_microbatches_per_rollout_batch = (
             self.rollout_batch_size // self.micro_train_batch_size
         )
+        self.off_policy = self.epochs_per_rollout_batch > 1 or self.train_batch_size < self.rollout_batch_size
+        assert (
+            self.off_policy and self.loss_type == "grpo_clip" or not self.off_policy
+        ), "Off-policy training is only supported with grpo_clip loss."
 
 
 def train_model(config: dict[any, any]):
@@ -233,20 +237,21 @@ def grpo_train(
 
     dataset = dataset.map_batches(fn=batch_transform, batch_size=params.micro_train_batch_size)
 
-    # pre-compute log probs of old policy
-    for i, batch in enumerate(dataset.iter_batches(batch_size=params.micro_train_batch_size)):
-        inputs = torch.from_numpy(batch["input_ids"]).to("cuda", non_blocking=True)
-        labels = torch.from_numpy(batch["labels"]).to("cuda", non_blocking=True)
+    # pre-compute log probs of old policy when off-policy training
+    if params.off_policy:
+        for i, batch in enumerate(dataset.iter_batches(batch_size=params.micro_train_batch_size)):
+            inputs = torch.from_numpy(batch["input_ids"]).to("cuda", non_blocking=True)
+            labels = torch.from_numpy(batch["labels"]).to("cuda", non_blocking=True)
 
-        with torch.no_grad(), torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
-            token_probs = torch.softmax(model(inputs).logits, dim=-1)
-            token_log_probs = token_probs.log()
-            log_probs = torch.gather(
-                token_log_probs,
-                dim=-1,
-                index=labels.unsqueeze(-1),
-            ).squeeze(-1)  # (B, seq_len)
-            old_log_prob_cache[i] = log_probs
+            with torch.no_grad(), torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
+                token_probs = torch.softmax(model(inputs).logits, dim=-1)
+                token_log_probs = token_probs.log()
+                log_probs = torch.gather(
+                    token_log_probs,
+                    dim=-1,
+                    index=labels.unsqueeze(-1),
+                ).squeeze(-1)  # (B, seq_len)
+                old_log_prob_cache[i] = log_probs
 
     for epoch in range(1, params.epochs_per_rollout_batch + 1):
         pbar = tqdm(
@@ -259,8 +264,8 @@ def grpo_train(
             inputs = torch.from_numpy(batch["input_ids"]).to("cuda", non_blocking=True)
             labels = torch.from_numpy(batch["labels"]).to("cuda", non_blocking=True)
             response_mask = torch.from_numpy(batch["response_mask"]).to("cuda", non_blocking=True)
-            raw_rewards = torch.from_numpy(batch["reward"]).to("cuda", non_blocking=True)
-            advantages = torch.from_numpy(batch["advantage"]).to("cuda", non_blocking=True)
+            raw_rewards = torch.from_numpy(np.expand_dims(batch["rewards"], axis=-1)).to("cuda", non_blocking=True)
+            advantages = torch.from_numpy(np.expand_dims(batch["advantages"], axis=-1)).to("cuda", non_blocking=True)
 
             with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                 token_probs = torch.softmax(model(inputs).logits, dim=-1) # (B, seq_len, vocab_size)
@@ -270,7 +275,7 @@ def grpo_train(
                     dim=-1,
                     index=labels.unsqueeze(-1),
                 ).squeeze(-1)  # (B, seq_len)
-                old_log_probs = old_log_prob_cache[i]
+                old_log_probs = old_log_prob_cache.get(i)
                 per_token_entropy = masked_mean(
                     -torch.sum(token_probs * token_log_probs, dim=-1), 
                     response_mask

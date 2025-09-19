@@ -59,9 +59,9 @@ class TrainParams:
     scheduler_min_lr: float = 0
     schduler_warmup_lr_factor: float = 0
 
-    num_epochs: int = 16
+    num_epochs: int = 12
     val_epoch_freq: int = 1
-    val_epoch_min: int = 10
+    val_epoch_min: int = 8
 
 def train_model(config: dict[any, any]):
     params = TrainParams(**config)

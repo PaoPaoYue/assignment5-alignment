@@ -296,6 +296,7 @@ if __name__ == "__main__":
         # enable_prefix_caching=True,
         gpu_memory_utilization=0.1,
     )
+    ray.get(evaluator.ready.remote())
     params = TrainParams(
         run_name=run_name,
         evaluator=evaluator,

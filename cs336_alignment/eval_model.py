@@ -64,6 +64,9 @@ class Evaluator:
 
         self.__RESULT_FILE_MIN_ROWS = 100
 
+    def ready(self):
+        pass
+
     def evaluate(
         self,
         label: str,

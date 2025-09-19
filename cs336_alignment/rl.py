@@ -117,7 +117,7 @@ def train_model(config: dict[any, any]):
     init_wandb(
         run_name=params.run_name,
         config={
-            "batch_size": params.batch_size,
+            "batch_size": params.train_batch_size,
             "learning_rate": params.lr,
             "accumulate_steps": params.accumulate_steps,
             "max_grad": params.max_grad,

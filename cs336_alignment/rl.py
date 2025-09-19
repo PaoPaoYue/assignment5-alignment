@@ -126,7 +126,7 @@ def train_model(config: dict[any, any]):
     
     # ========= 训练循环（最优模型保存）=========
     for grpo_step in range(1, params.n_grpo_steps + 1):
-        rollout = rollout(
+        rollout = sample_rollout(
             grpo_step,
             model_state_dict,
             train_dataset,
@@ -167,7 +167,7 @@ def train_model(config: dict[any, any]):
 
 # ========== 训练与验证 ==========
 @torch.no_grad()
-def rollout(
+def sample_rollout(
     grpo_step: int,
     model_state_dict: dict[str, torch.Tensor],
     dataset: ray.data.Dataset,

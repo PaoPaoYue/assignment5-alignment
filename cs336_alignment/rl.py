@@ -231,7 +231,7 @@ def grpo_train(
 
         return batch
 
-    dataset.map_batches(fn=batch_transform, batch_size=params.micro_train_batch_size)
+    dataset = dataset.map_batches(fn=batch_transform, batch_size=params.micro_train_batch_size)
 
     # pre-compute log probs of old policy
     for i, batch in enumerate(dataset.iter_batches(batch_size=params.micro_train_batch_size)):

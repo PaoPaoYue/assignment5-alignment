@@ -40,11 +40,11 @@ class TrainParams:
     seed: int = 42
 
     lr: float = 5e-5
-    batch_size: int = 4
+    batch_size: int = 2
     val_batch_size: int = 12
     ei_sample_batch: int = 512
     ei_sample_num: int = 2
-    accumulate_steps: int = 4
+    accumulate_steps: int = 8
     max_grad: float = 1
     optimizer_beta1: float = 0.9
     optimizer_beta2: float = 0.999

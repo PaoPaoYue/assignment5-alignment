@@ -38,15 +38,15 @@ class TrainParams:
     valid_result_path: str
 
     valid_steps: list = field(
-        default_factory=lambda: [32, 64, 128, 256]
+        default_factory=lambda: [64, 128, 256, 512]
     )  # step = count / batch_size, default counts=[128, 256, 512, 1024]
 
     seed: int = 42
 
     lr: float = 5e-5
-    batch_size: int = 4
+    batch_size: int = 2
     val_batch_size: int = 12
-    accumulate_steps: int = 4
+    accumulate_steps: int = 8
     max_grad: float = 1
     optimizer_beta1: float = 0.9
     optimizer_beta2: float = 0.999

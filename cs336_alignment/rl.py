@@ -121,7 +121,6 @@ def train_model(config: dict[any, any]):
             "max_grad": params.max_grad,
         },
     )
-
     
     # ========= 训练循环（最优模型保存）=========
     for grpo_step in range(1, params.n_grpo_steps + 1):

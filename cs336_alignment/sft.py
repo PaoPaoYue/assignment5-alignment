@@ -124,7 +124,7 @@ def train_model(config: dict[any, any]):
             params,
         )
 
-        if epoch % params.val_epoch_freq != 0 and epoch != params.num_epochs and epoch >= params.val_epoch_min:
+        if (epoch % params.val_epoch_freq != 0 and epoch != params.num_epochs) or epoch < params.val_epoch_min:
             continue
 
         torch.cuda.empty_cache()

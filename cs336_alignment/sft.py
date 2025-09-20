@@ -59,7 +59,7 @@ class TrainParams:
     scheduler_min_lr: float = 0
     schduler_warmup_lr_factor: float = 0
 
-    num_epochs: int = 12
+    num_epochs: int = 10
     val_epoch_freq: int = 1
     val_epoch_min: int = 8
 

@@ -365,7 +365,6 @@ if __name__ == "__main__":
         dtype=torch.bfloat16,
         # enable_prefix_caching=True,
         gpu_memory_utilization=0.1,
-        distributed_executor_backend="mp"
     )
     ray.get(evaluator.ready.remote())
     params = TrainParams(

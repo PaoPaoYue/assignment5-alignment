@@ -6,11 +6,11 @@ download_models:
 
 upload_models:
 	export WANDB_PROJECT=cs336-ass5 && \
-	uv run wandb artifact put artifacts/checkpoints/**/*.pt --type model --name checkpoints
+	uv run wandb artifact put artifacts/checkpoints --type model --name checkpoints
 
 upload_results:
 	export WANDB_PROJECT=cs336-ass5 && \
-	uv run wandb artifact put artifacts/results/**/*.json --type results --name results
+	uv run wandb artifact put artifacts/results --type results --name results
 
 download_artifacts:
 	uv run wandb artifact get checkpoints:latest

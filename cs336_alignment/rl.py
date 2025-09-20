@@ -40,7 +40,7 @@ class TrainParams:
     valid_dir_path: str
     valid_result_path: str
 
-    train_cases: int = 512
+    train_cases: int = 12000
 
     seed: int = 42
 
@@ -63,8 +63,8 @@ class TrainParams:
     optimizer_beta2: float = 0.95
     optimizer_weight_decay: float = 0.0
 
-    n_grpo_steps: int = 30
-    val_step_freq: int = 10
+    n_grpo_steps: int = 10
+    val_step_freq: int = 5
     epochs_per_rollout_batch: int = 1
 
     def __post_init__(self):

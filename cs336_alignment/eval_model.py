@@ -242,9 +242,7 @@ if __name__ == "__main__":
         gpu_memory_utilization=0.5,
     )
     ds = load_dataset("./datasets/eval/math")
-    model_state_dict, _, _, _ = load_checkpoint(
-        "./artifacts/checkpoints/ei_ckpt/checkpoint.pt"
-    )
+    model_state_dict= torch.load(f"{os.path.abspath("./artifacts/checkpoints/ei_ckpt")}/checkpoint.pt",weights_only=False)
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     _, analysis = ray.get(
         evaluator.evaluate.remote(

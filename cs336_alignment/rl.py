@@ -245,14 +245,11 @@ def grpo_train(
             labels = torch.tensor(batch["labels"], device="cuda")
 
             with torch.no_grad(), torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
-                token_probs = torch.softmax(model(inputs).logits, dim=-1)
-                token_log_probs = token_probs.log()
-                log_probs = torch.gather(
-                    token_log_probs,
+                old_log_prob_cache[i] = torch.gather(
+                    torch.softmax(model(inputs).logits, dim=-1).log(),
                     dim=-1,
                     index=labels.unsqueeze(-1),
                 ).squeeze(-1)  # (B, seq_len)
-                old_log_prob_cache[i] = log_probs
 
     for epoch in range(1, params.epochs_per_rollout_batch + 1):
         pbar = tqdm(

@@ -55,8 +55,9 @@ class TrainParams:
         "no_baseline",
         "reinforce_with_baseline",
         "grpo_clip",
-    ] = "grpo_clip"
-    use_std_normalization: bool = True
+    ] = "reinforce_with_baseline"
+    use_std_normalization: bool = False
+    use_length_normalization: bool = True
     grpo_cliprange: float = 0.2
 
     optimizer_beta1: float = 0.9
@@ -65,7 +66,7 @@ class TrainParams:
 
     n_grpo_steps: int = 30
     val_step_freq: int = 10
-    epochs_per_rollout_batch: int = 3
+    epochs_per_rollout_batch: int = 1
 
     def __post_init__(self):
         assert (
@@ -289,6 +290,7 @@ def grpo_train(
                     advantages,
                     old_log_probs,
                     params.grpo_cliprange,
+                    params.use_length_normalization,
                 )
 
             if (i + 1) % params.accumulate_steps == 0:

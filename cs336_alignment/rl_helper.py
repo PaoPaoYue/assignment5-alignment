@@ -3,6 +3,7 @@ from typing import Callable, Literal
 import ray
 import torch
 
+from cs336_alignment.sft_helper import masked_normalize
 
 def compute_group_normalized_rewards(
     reward_fn: Callable[[str, str], dict[str, float]],
@@ -120,6 +121,7 @@ def grpo_microbatch_train_step(
     advantages: torch.Tensor | None = None,
     old_log_probs: torch.Tensor | None = None,
     cliprange: float | None = None,
+    use_length_normalization: bool = False,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     per_token_loss, meta = compute_policy_gradient_loss(
         policy_log_probs,
@@ -129,6 +131,10 @@ def grpo_microbatch_train_step(
         old_log_probs,
         cliprange,
     )
-    loss = masked_mean(per_token_loss, response_mask) / gradient_accumulation_steps
+    if not use_length_normalization:
+        loss = masked_mean(per_token_loss, response_mask) / gradient_accumulation_steps
+    else:
+        max_length = response_mask.sum(dim=1).max().clamp(min=1)
+        loss = masked_normalize(per_token_loss, response_mask, max_length) / gradient_accumulation_steps
     loss.backward()
     return loss, meta

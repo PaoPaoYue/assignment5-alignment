@@ -371,7 +371,7 @@ if __name__ == "__main__":
         run_name=run_name,
         evaluator=evaluator,
         model_dir_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
-        ckpt_path=os.path.abspath("./artifacts/checkpoints/rl_ckpt"),
+        ckpt_path=os.path.abspath("./artifacts/checkpoints/sft_ckpt"),
         train_dir_path=os.path.abspath("./datasets/train/math_12k/train"),
         valid_dir_path=os.path.abspath("./datasets/eval/math"),
         valid_result_path=os.path.abspath("./artifacts/results/rl-valid"),

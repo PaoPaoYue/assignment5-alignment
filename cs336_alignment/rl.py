@@ -48,7 +48,7 @@ class TrainParams:
     rollout_batch_size: int = 256
     group_size: int = 8
     train_batch_size: int = 256
-    val_batch_size: int = 16
+    val_batch_size: int = 8
     accumulate_steps: int = 128
     max_grad: float = 1
     loss_type: Literal[
@@ -264,8 +264,8 @@ def grpo_train(
             inputs = torch.from_numpy(batch["input_ids"]).to("cuda", non_blocking=True)
             labels = torch.from_numpy(batch["labels"]).to("cuda", non_blocking=True)
             response_mask = torch.from_numpy(batch["response_mask"]).to("cuda", non_blocking=True)
-            raw_rewards = torch.from_numpy(np.expand_dims(batch["rewards"], axis=-1)).to("cuda", non_blocking=True)
-            advantages = torch.from_numpy(np.expand_dims(batch["advantages"], axis=-1)).to("cuda", non_blocking=True)
+            raw_rewards = torch.from_numpy(np.expand_dims(batch["reward"], axis=-1)).to("cuda", non_blocking=True)
+            advantages = torch.from_numpy(np.expand_dims(batch["advantage"], axis=-1)).to("cuda", non_blocking=True)
 
             with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                 token_probs = torch.softmax(model(inputs).logits, dim=-1) # (B, seq_len, vocab_size)
@@ -314,10 +314,10 @@ def grpo_train(
                     "train/loss": loss.item() * params.accumulate_steps,
                     "train/entropy": per_token_entropy.item(),
                 }
-                if "group_means" in batch:
-                    report["train/group_means"] = batch["group_means"].mean()
-                if "group_stds" in batch:
-                    report["train/group_stds"] = batch["group_stds"].mean()
+                if "group_mean" in batch:
+                    report["train/group_mean"] = batch["group_mean"].mean()
+                if "group_std" in batch:
+                    report["train/group_std"] = batch["group_std"].mean()
                 if "clipped" in meta:
                     report["train/clip_fraction"] = meta["clipped"].float().mean().item()
                 wandb.log(report)

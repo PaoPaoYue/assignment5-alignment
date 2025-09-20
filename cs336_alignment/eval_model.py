@@ -243,12 +243,12 @@ if __name__ == "__main__":
     )
     ds = load_dataset("./datasets/eval/math")
     model_state_dict, _, _, _ = load_checkpoint(
-        "./artifacts/checkpoints/sft_ckpt/checkpoint.pt"
+        "./artifacts/checkpoints/ei_ckpt/checkpoint.pt"
     )
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     _, analysis = ray.get(
         evaluator.evaluate.remote(
-            ds, batch_size=4, result_path="./artifacts/results/eval"
+            ds, batch_size=8, result_path="./artifacts/results/eval"
         )
     )
     logger.info(analysis)

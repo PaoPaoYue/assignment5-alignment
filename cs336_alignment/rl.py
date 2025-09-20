@@ -184,7 +184,7 @@ def sample_rollout(
     ).limit(params.n_prompts_per_rollout_batch)
     assert sampled.count() == params.n_prompts_per_rollout_batch
     logger.info(
-        f"GRPO step {grpo_step}: Sampled {sampled.count()} examples for training."
+        f"GRPO step {grpo_step}: Sampled {sampled.count()} examples for rollout."
     )
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     results, _ = ray.get(
@@ -240,8 +240,8 @@ def grpo_train(
     # pre-compute log probs of old policy when off-policy training
     if params.off_policy:
         for i, batch in enumerate(dataset.iter_batches(batch_size=params.micro_train_batch_size)):
-            inputs = torch.from_numpy(batch["input_ids"]).to("cuda", non_blocking=True)
-            labels = torch.from_numpy(batch["labels"]).to("cuda", non_blocking=True)
+            inputs = torch.tensor(batch["input_ids"], device="cuda")
+            labels = torch.tensor(batch["labels"], device="cuda")
 
             with torch.no_grad(), torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                 token_probs = torch.softmax(model(inputs).logits, dim=-1)
@@ -261,11 +261,11 @@ def grpo_train(
             leave=False,
         )
         for i, batch in enumerate(pbar):
-            inputs = torch.from_numpy(batch["input_ids"]).to("cuda", non_blocking=True)
-            labels = torch.from_numpy(batch["labels"]).to("cuda", non_blocking=True)
-            response_mask = torch.from_numpy(batch["response_mask"]).to("cuda", non_blocking=True)
-            raw_rewards = torch.from_numpy(np.expand_dims(batch["reward"], axis=-1)).to("cuda", non_blocking=True)
-            advantages = torch.from_numpy(np.expand_dims(batch["advantage"], axis=-1)).to("cuda", non_blocking=True)
+            inputs = torch.tensor(batch["input_ids"], device="cuda")
+            labels = torch.tensor(batch["labels"], device="cuda")
+            response_mask = torch.tensor(batch["response_mask"], device="cuda")
+            raw_rewards = torch.tensor(np.expand_dims(batch["reward"], axis=-1), device="cuda")
+            advantages = torch.tensor(np.expand_dims(batch["advantage"], axis=-1), device="cuda")
 
             with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                 token_probs = torch.softmax(model(inputs).logits, dim=-1) # (B, seq_len, vocab_size)

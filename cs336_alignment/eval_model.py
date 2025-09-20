@@ -246,7 +246,7 @@ if __name__ == "__main__":
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     _, analysis = ray.get(
         evaluator.evaluate.remote(
-            ds, batch_size=8, result_path="./artifacts/results/eval"
+            "eval", 0, ds, batch_size=8, result_path="./artifacts/results/eval"
         )
     )
     logger.info(analysis)

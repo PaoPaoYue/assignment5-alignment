@@ -313,10 +313,11 @@ def grpo_train(
                     "train/loss": loss.item() * params.accumulate_steps,
                     "train/entropy": per_token_entropy.item(),
                 }
-                if "group_mean" in batch:
-                    report["train/group_mean"] = batch["group_mean"].mean()
-                if "group_std" in batch:
-                    report["train/group_std"] = batch["group_std"].mean()
+                schma_names = dataset.schema().names
+                if "group_mean" in schma_names:
+                    report["train/group_mean"] = dataset.mean("group_mean")
+                if "group_std" in schma_names:
+                    report["train/group_std"] = dataset.mean("group_std")
                 if "clipped" in meta:
                     report["train/clip_fraction"] = meta["clipped"].float().mean().item()
                 wandb.log(report)

@@ -55,7 +55,7 @@ class TrainParams:
         "no_baseline",
         "reinforce_with_baseline",
         "grpo_clip",
-    ] = "reinforce_with_baseline"
+    ] = "grpo_clip"
     use_std_normalization: bool = True
     use_length_normalization: bool = True
     grpo_cliprange: float = 0.2
@@ -66,7 +66,7 @@ class TrainParams:
 
     n_grpo_steps: int = 30
     val_step_freq: int = 5
-    epochs_per_rollout_batch: int = 1
+    epochs_per_rollout_batch: int = 4
 
     def __post_init__(self):
         assert (

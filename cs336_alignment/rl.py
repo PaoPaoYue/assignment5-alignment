@@ -44,7 +44,7 @@ class TrainParams:
 
     seed: int = 42
 
-    lr: float = 5e-6
+    lr: float = 1e-5
     rollout_batch_size: int = 256
     group_size: int = 8
     train_batch_size: int = 256

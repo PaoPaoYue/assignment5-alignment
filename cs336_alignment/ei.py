@@ -43,7 +43,7 @@ class TrainParams:
 
     lr: float = 5e-5
     batch_size: int = 2
-    val_batch_size: int = 12
+    val_batch_size: int = 16
     ei_sample_batch: int = 512
     ei_sample_num: int = 2
     accumulate_steps: int = 8

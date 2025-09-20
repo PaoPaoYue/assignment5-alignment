@@ -48,7 +48,7 @@ class TrainParams:
     rollout_batch_size: int = 256
     group_size: int = 8
     train_batch_size: int = 256
-    val_batch_size: int = 12
+    val_batch_size: int = 16
     accumulate_steps: int = 128
     max_grad: float = 1
     loss_type: Literal[

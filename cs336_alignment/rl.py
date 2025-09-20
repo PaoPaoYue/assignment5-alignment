@@ -180,7 +180,7 @@ def sample_rollout(
     evaluator = params.evaluator
     total = dataset.count()
     sampled = dataset.random_sample(
-        params.n_prompts_per_rollout_batch / total, seed=params.seed + grpo_step * 1000
+        params.n_prompts_per_rollout_batch * 2 / total, seed=params.seed + grpo_step * 1000
     ).limit(params.n_prompts_per_rollout_batch)
     assert sampled.count() == params.n_prompts_per_rollout_batch
     logger.info(

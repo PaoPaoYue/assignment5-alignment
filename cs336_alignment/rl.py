@@ -246,7 +246,7 @@ def grpo_train(
 
             with torch.no_grad(), torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
                 old_log_prob_cache[i] = torch.gather(
-                    torch.softmax(model(inputs).logits, dim=-1).log(),
+                    torch.nn.functional.log_softmax(model(inputs).logits, dim=-1),
                     dim=-1,
                     index=labels.unsqueeze(-1),
                 ).squeeze(-1)  # (B, seq_len)
@@ -312,6 +312,7 @@ def grpo_train(
                     + 1,
                     "train/loss": loss.item() * params.accumulate_steps,
                     "train/entropy": per_token_entropy.item(),
+                    "train/grad_norm": get_grad_norm(model),
                 }
                 schma_names = dataset.schema().names
                 if "group_mean" in schma_names:

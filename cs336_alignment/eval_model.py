@@ -113,7 +113,6 @@ class Evaluator:
             logger.info(
                 f"Evaluator finished {label} step {step}, results saved to {result_path}"
             )
-        logger.info(f"evaluation analysis: {analysis}")
         return result, analysis
 
     def load_new_policy_weights(self, state_dict: dict[str, any]):

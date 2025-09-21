@@ -56,7 +56,7 @@ class TrainParams:
         "reinforce_with_baseline",
         "grpo_clip",
     ] = "grpo_clip"
-    use_std_normalization: bool = True
+    use_std_normalization: bool = False
     use_length_normalization: bool = True
     grpo_cliprange: float = 0.2
 

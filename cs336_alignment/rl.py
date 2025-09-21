@@ -44,7 +44,7 @@ class TrainParams:
 
     seed: int = 42
 
-    lr: float = 1e-5
+    lr: float = 5e-5
     rollout_batch_size: int = 256
     group_size: int = 8
     train_batch_size: int = 256
@@ -56,7 +56,7 @@ class TrainParams:
         "reinforce_with_baseline",
         "grpo_clip",
     ] = "grpo_clip"
-    use_std_normalization: bool = False
+    use_std_normalization: bool = True
     use_length_normalization: bool = True
     grpo_cliprange: float = 0.2
 

@@ -66,7 +66,7 @@ class TrainParams:
 
     n_grpo_steps: int = 30
     val_step_freq: int = 5
-    epochs_per_rollout_batch: int = 4
+    epochs_per_rollout_batch: int = 2
 
     def __post_init__(self):
         assert (

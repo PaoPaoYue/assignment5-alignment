@@ -58,7 +58,7 @@ class TrainParams:
     ] = "grpo_clip"
     use_std_normalization: bool = True
     use_length_normalization: bool = True
-    grpo_cliprange: float = 1
+    grpo_cliprange: float = 0.2
 
     optimizer_beta1: float = 0.9
     optimizer_beta2: float = 0.95

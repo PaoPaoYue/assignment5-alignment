@@ -44,7 +44,7 @@ class TrainParams:
 
     seed: int = 42
 
-    lr: float = 1e-6
+    lr: float = 1e-5
     rollout_batch_size: int = 256
     group_size: int = 8
     train_batch_size: int = 64
@@ -65,7 +65,7 @@ class TrainParams:
     optimizer_weight_decay: float = 0.0
 
     n_grpo_steps: int = 30
-    val_step_freq: int = 5
+    val_step_freq: int = 30
     epochs_per_rollout_batch: int = 1
 
     def __post_init__(self):

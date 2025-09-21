@@ -212,7 +212,7 @@ def train_one_epoch(
 
         pbar.set_postfix(loss=running_loss / (i + 1), entropy=running_entropy / (i + 1))
 
-        if (i + 1) % params.accumulate_steps == 0 and wandb.run is not None:
+        if (i + 1) % params.accumulate_steps == 0:
             wandb.log(
                 {
                     "train_step": (epoch - 1) * total

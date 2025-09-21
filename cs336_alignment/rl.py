@@ -291,9 +291,13 @@ def grpo_train(
                 )
 
             if (i + 1) % params.accumulate_steps == 0:
+                total_norm = torch.tensor(0.0, device="cuda")
                 for p in model.parameters():
                     if p.grad is not None:
+                        param_norm = p.grad.data.norm(2)
+                        total_norm += param_norm ** 2
                         torch.nn.utils.clip_grad_value_(p, params.max_grad)
+                total_norm = total_norm.sqrt()
                 optimizer.step()
                 optimizer.zero_grad()
 
@@ -304,7 +308,7 @@ def grpo_train(
                 loss=running_loss / (i + 1), entropy=running_entropy / (i + 1)
             )
 
-            if (i + 1) % params.accumulate_steps == 0 and wandb.run is not None:
+            if (i + 1) % params.accumulate_steps == 0:
                 report = {
                     "grpo_step": grpo_step,
                     "train_step": (epoch - 1) * total
@@ -312,7 +316,7 @@ def grpo_train(
                     + 1,
                     "train/loss": loss.item() * params.accumulate_steps,
                     "train/entropy": per_token_entropy.item(),
-                    "train/grad_norm": get_grad_norm(model),
+                    "train/grad_norm": total_norm.item()
                 }
                 schma_names = dataset.schema().names
                 if "group_mean" in schma_names:

@@ -47,15 +47,15 @@ class TrainParams:
     lr: float = 1e-5
     rollout_batch_size: int = 256
     group_size: int = 8
-    train_batch_size: int = 64
+    train_batch_size: int = 256
     val_batch_size: int = 8
-    accumulate_steps: int = 32
+    accumulate_steps: int = 128
     max_grad: float = 1
     loss_type: Literal[
         "no_baseline",
         "reinforce_with_baseline",
         "grpo_clip",
-    ] = "grpo_clip"
+    ] = "reinforce_with_baseline"
     use_std_normalization: bool = True
     use_length_normalization: bool = True
     grpo_cliprange: float = 0.2

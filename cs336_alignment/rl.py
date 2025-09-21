@@ -98,7 +98,6 @@ def train_model(config: dict[any, any]):
         params.train_cases
     ), load_dataset(params.valid_dir_path)
 
-    model_state_dict= torch.load(f"{params.ckpt_path}/checkpoint.pt",weights_only=False)
 
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
@@ -106,8 +105,10 @@ def train_model(config: dict[any, any]):
         attn_implementation="flash_attention_2",
         trust_remote_code=True,
     )
-    model.load_state_dict(model_state_dict)
+    model_state_dict = model.state_dict()
+    # model.load_state_dict(model_state_dict)
     model = ray.train.torch.prepare_model(model)
+    # model_state_dict= torch.load(f"{params.ckpt_path}/checkpoint.pt",weights_only=False)
 
     tokenizer = AutoTokenizer.from_pretrained(
         params.model_dir_path, trust_remote_code=True

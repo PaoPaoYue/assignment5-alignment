@@ -44,12 +44,12 @@ class TrainParams:
 
     seed: int = 42
 
-    lr: float = 5e-5
+    lr: float = 1e-5
     rollout_batch_size: int = 256
     group_size: int = 8
-    train_batch_size: int = 256
+    train_batch_size: int = 64
     val_batch_size: int = 8
-    accumulate_steps: int = 128
+    accumulate_steps: int = 32
     max_grad: float = 1
     loss_type: Literal[
         "no_baseline",
@@ -58,7 +58,7 @@ class TrainParams:
     ] = "grpo_clip"
     use_std_normalization: bool = True
     use_length_normalization: bool = True
-    grpo_cliprange: float = 0.2
+    grpo_cliprange: float = 1
 
     optimizer_beta1: float = 0.9
     optimizer_beta2: float = 0.95
@@ -66,7 +66,7 @@ class TrainParams:
 
     n_grpo_steps: int = 30
     val_step_freq: int = 5
-    epochs_per_rollout_batch: int = 2
+    epochs_per_rollout_batch: int = 1
 
     def __post_init__(self):
         assert (

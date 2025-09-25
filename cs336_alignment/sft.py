@@ -37,16 +37,18 @@ class TrainParams:
     valid_dir_path: str
     valid_result_path: str
 
+    train_cases: int = 512
+
     valid_steps: list = field(
-        default_factory=lambda: [32, 64, 128, 256]
+        default_factory=lambda: [64, 128, 256, 512]
     )  # step = count / batch_size, default counts=[128, 256, 512, 1024]
 
     seed: int = 42
 
     lr: float = 5e-5
-    batch_size: int = 4
-    val_batch_size: int = 12
-    accumulate_steps: int = 4
+    batch_size: int = 2
+    val_batch_size: int = 8
+    accumulate_steps: int = 8
     max_grad: float = 1
     optimizer_beta1: float = 0.9
     optimizer_beta2: float = 0.999
@@ -57,7 +59,9 @@ class TrainParams:
     scheduler_min_lr: float = 0
     schduler_warmup_lr_factor: float = 0
 
-    num_epochs: int = 1
+    num_epochs: int = 10
+    val_epoch_freq: int = 1
+    val_epoch_min: int = 8
 
 def train_model(config: dict[any, any]):
     params = TrainParams(**config)
@@ -65,7 +69,7 @@ def train_model(config: dict[any, any]):
     mute_ray_data()
 
     train_dataset, valid_dataset = load_dataset(params.train_dir_path).limit(
-        512
+        params.train_cases
     ), load_dataset(params.valid_dir_path)
     model = AutoModelForCausalLM.from_pretrained(
         params.model_dir_path,
@@ -101,16 +105,10 @@ def train_model(config: dict[any, any]):
             "max_grad": params.max_grad,
         },
     )
-    wandb.watch(model, log="all", log_freq=200)
-
-    total_params, trainable_params = get_model_size(model)
-    logger.info(
-        f"Starting training with parameters: total_params={total_params}, trainable_params={trainable_params}"
-    )
 
     # ========= 训练循环（最优模型保存）=========
     for epoch in range(1, params.num_epochs + 1):
-        _ = train_one_epoch(
+        model_state_dict = train_one_epoch(
             epoch,
             model,
             tokenizer,
@@ -121,30 +119,25 @@ def train_model(config: dict[any, any]):
             params,
         )
 
-        # val_metrics = validate(
-        #     epoch,
-        #     model,
-        #     valid_dataset,
-        #     params,
-        #     step=epoch*((train_dataset.count() + params.batch_size - 1) // params.batch_size),
-        # )
-        val_metrics = {
-            "val/reward": 0,
-            "val/format_reward": 0,
-        }
+        if (epoch % params.val_epoch_freq != 0 and epoch != params.num_epochs) or epoch < params.val_epoch_min:
+            continue
 
-        logger.info(f"Validation metrics at epoch {epoch}: {val_metrics}")
+        torch.cuda.empty_cache()
+
+        val_metrics = validate(
+            epoch,
+            model_state_dict,
+            valid_dataset,
+            params,
+            step=epoch*((train_dataset.count() + params.batch_size - 1) // params.batch_size),
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            save_checkpoint(
-                os.path.join(tmpdir, "checkpoint.pt"),
-                model,
-                optimizer,
-                scheduler,
-                epoch=epoch + 1,
-            )
+            torch.save(model.state_dict(), os.path.join(tmpdir, "checkpoint.pt"))
             checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
             ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
+
+    ray.get(params.evaluator.close.remote())
     wandb.finish()
 
 
@@ -219,19 +212,20 @@ def train_one_epoch(
 
         pbar.set_postfix(loss=running_loss / (i + 1), entropy=running_entropy / (i + 1))
 
-        if (i + 1) % params.accumulate_steps == 0 and wandb.run is not None:
+        if (i + 1) % params.accumulate_steps == 0:
             wandb.log(
                 {
                     "train_step": (epoch - 1) * total
                     + i // params.accumulate_steps
                     + 1,
                     "train/lr": scheduler.get_last_lr()[0],
-                    "train/loss": running_loss / (i + 1),
-                    "train/entropy": running_entropy / (i + 1),
+                    "train/loss": loss.item() * params.accumulate_steps,
+                    "train/entropy": per_token_entropy.item(),
                 }
             )
 
         # if (i + 1) in params.valid_steps:
+        #     torch.cuda.empty_cache()
         #     validate(
         #         epoch,
         #         model,
@@ -241,23 +235,20 @@ def train_one_epoch(
         #         async_no_return=True,
         #     )
 
-    return {
-        "train/loss": running_loss / (i + 1),
-        "train/entropy": running_entropy / (i + 1),
-    }
+    return model.state_dict()
 
 
 @torch.no_grad()
 def validate(
     epoch: int,
-    model: nn.Module,
+    state_dict: dict[str, torch.Tensor],
     dataset: ray.data.Dataset,
     params: TrainParams,
     step: int,
     async_no_return: bool = False,
 ) -> dict[str, float] | None:
     evaluator = params.evaluator
-    ray.get(evaluator.load_new_policy_weights.remote(model.state_dict()))
+    ray.get(evaluator.load_new_policy_weights.remote(state_dict))
     if async_no_return:
         evaluator.evaluate.remote(
             "validation",
@@ -282,27 +273,28 @@ def validate(
 
 if __name__ == "__main__":
     run_name = f"run_{time.strftime('%Y%m%d_%H%M%S')}"
-    # evaluator = Evaluator.options(num_gpus=0.1).remote(
-    #     run_name=run_name,
-    #     model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
-    #     seed=42,
-    #     sampling_params=SamplingParams(
-    #         temperature=1.0,
-    #         top_p=1.0,
-    #         max_tokens=1024,
-    #         min_tokens=4,
-    #         include_stop_str_in_output=True,
-    #         stop="</answer>",
-    #         logprobs=10,
-    #         seed=42,
-    #     ),
-    #     dtype=torch.bfloat16,
-    #     # enable_prefix_caching=True,
-    #     gpu_memory_utilization=0.1,
-    # )
+    evaluator = Evaluator.options(num_gpus=0.1).remote(
+        run_name=run_name,
+        model_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
+        seed=42,
+        sampling_params=SamplingParams(
+            temperature=1.0,
+            top_p=1.0,
+            max_tokens=1024,
+            min_tokens=4,
+            include_stop_str_in_output=True,
+            stop="</answer>",
+            logprobs=10,
+            seed=42,
+        ),
+        dtype=torch.bfloat16,
+        # enable_prefix_caching=True,
+        gpu_memory_utilization=0.1,
+    )
+    ray.get(evaluator.ready.remote())
     params = TrainParams(
         run_name=run_name,
-        evaluator=None,
+        evaluator=evaluator,
         model_dir_path=os.path.abspath("./models/qwen2.5-math-1.5b"),
         train_dir_path=os.path.abspath("./datasets/train/math_12k/train"),
         valid_dir_path=os.path.abspath("./datasets/eval/math"),
@@ -320,11 +312,12 @@ if __name__ == "__main__":
                 num_to_keep=1,
                 checkpoint_score_attribute="reward",
                 checkpoint_score_order="max",
-            ),
+            )
         ),
     )
     result = trainer.fit()
-    result.checkpoint.to_directory(os.path.abspath("./artifacts/checkpoints/sft_ckpt"))
+    best_ckpt, best_metrics = result.best_checkpoints[0]
+    best_ckpt.to_directory(os.path.abspath("./artifacts/checkpoints/sft_ckpt"))
     logger.info(
-        f"Train finished, copy checkpoint from {result.checkpoint.path} to {os.path.abspath("./artifacts/checkpoints/sft_ckpt")}."
+        f"Train finished with metrics {best_metrics}, saved checkpoint to {os.path.abspath("./artifacts/checkpoints/sft_ckpt")}."
     )

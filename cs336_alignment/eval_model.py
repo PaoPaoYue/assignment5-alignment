@@ -64,6 +64,9 @@ class Evaluator:
 
         self.__RESULT_FILE_MIN_ROWS = 100
 
+    def ready(self):
+        pass
+
     def evaluate(
         self,
         label: str,
@@ -116,6 +119,8 @@ class Evaluator:
         llm_model = self.llm.llm_engine.model_executor.driver_worker.model_runner.model
         llm_model.load_weights(state_dict.items())
 
+    def close(self):
+        wandb.finish()
 
 def log_generations(
     batch: dict[str, np.ndarray], outputs: list[RequestOutput], logprob_num: int
@@ -236,13 +241,11 @@ if __name__ == "__main__":
         gpu_memory_utilization=0.5,
     )
     ds = load_dataset("./datasets/eval/math")
-    model_state_dict, _, _, _ = load_checkpoint(
-        "./artifacts/checkpoints/sft_ckpt/checkpoint.pt"
-    )
+    model_state_dict= torch.load(f"{os.path.abspath("./artifacts/checkpoints/ei_ckpt")}/checkpoint.pt",weights_only=False)
     ray.get(evaluator.load_new_policy_weights.remote(model_state_dict))
     _, analysis = ray.get(
         evaluator.evaluate.remote(
-            ds, batch_size=4, result_path="./artifacts/results/eval"
+            "eval", 0, ds, batch_size=8, result_path="./artifacts/results/eval"
         )
     )
     logger.info(analysis)

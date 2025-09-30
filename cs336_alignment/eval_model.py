@@ -172,29 +172,29 @@ def analyse_result(ds: ray.data.Dataset) -> dict[str, any]:
 
     total_count = ds.count()
 
-    # 条件过滤
-    correct_answer = ds.filter(expr="answer_reward == 1")
-    correct_format = ds.filter(expr="format_reward == 1")
-    wrong_answer = ds.filter(expr="answer_reward != 1")
-    wrong_format = ds.filter(expr="format_reward != 1")
+    # # 条件过滤
+    # correct_answer = ds.filter(expr="answer_reward == 1")
+    # correct_format = ds.filter(expr="format_reward == 1")
+    # wrong_answer = ds.filter(expr="answer_reward != 1")
+    # wrong_format = ds.filter(expr="format_reward != 1")
 
     # 计算数量
-    correct_answer_count = correct_answer.count()
-    correct_format_count = correct_format.count()
+    correct_answer_count = ds.filter(expr="answer_reward == 1").count()
+    correct_format_count = ds.filter(expr="format_reward == 1").count()
 
     # 计算平均 token 长度
     avg_len = ds.mean("tokens") or 0
-    correct_answer_avg_len = correct_answer.mean("tokens") or 0
-    correct_format_avg_len = correct_format.mean("tokens") or 0
-    wrong_answer_avg_len = wrong_answer.mean("tokens") or 0
-    wrong_format_avg_len = wrong_format.mean("tokens") or 0
+    # correct_answer_avg_len = correct_answer.mean("tokens") or 0
+    # correct_format_avg_len = correct_format.mean("tokens") or 0
+    # wrong_answer_avg_len = wrong_answer.mean("tokens") or 0
+    # wrong_format_avg_len = wrong_format.mean("tokens") or 0
 
-    # 计算平均 entropy
-    avg_entropy = ds.mean("entropy") or 0
-    correct_answer_avg_entropy = correct_answer.mean("entropy") or 0
-    correct_format_avg_entropy = correct_format.mean("entropy") or 0
-    wrong_answer_avg_entropy = wrong_answer.mean("entropy") or 0
-    wrong_format_avg_entropy = wrong_format.mean("entropy") or 0
+    # # 计算平均 entropy
+    # avg_entropy = ds.mean("entropy") or 0
+    # correct_answer_avg_entropy = correct_answer.mean("entropy") or 0
+    # correct_format_avg_entropy = correct_format.mean("entropy") or 0
+    # wrong_answer_avg_entropy = wrong_answer.mean("entropy") or 0
+    # wrong_format_avg_entropy = wrong_format.mean("entropy") or 0
 
     return {
         "reward": correct_answer_count,
@@ -206,15 +206,15 @@ def analyse_result(ds: ray.data.Dataset) -> dict[str, any]:
             correct_format_count / total_count if total_count > 0 else 0
         ),
         "avg_len": avg_len,
-        "correct_answer_avg_len": correct_answer_avg_len,
-        "correct_format_avg_len": correct_format_avg_len,
-        "wrong_answer_avg_len": wrong_answer_avg_len,
-        "wrong_format_avg_len": wrong_format_avg_len,
-        "avg_entropy": avg_entropy,
-        "correct_answer_avg_entropy": correct_answer_avg_entropy,
-        "correct_format_avg_entropy": correct_format_avg_entropy,
-        "wrong_answer_avg_entropy": wrong_answer_avg_entropy,
-        "wrong_format_avg_entropy": wrong_format_avg_entropy,
+        # "correct_answer_avg_len": correct_answer_avg_len,
+        # "correct_format_avg_len": correct_format_avg_len,
+        # "wrong_answer_avg_len": wrong_answer_avg_len,
+        # "wrong_format_avg_len": wrong_format_avg_len,
+        # "avg_entropy": avg_entropy,
+        # "correct_answer_avg_entropy": correct_answer_avg_entropy,
+        # "correct_format_avg_entropy": correct_format_avg_entropy,
+        # "wrong_answer_avg_entropy": wrong_answer_avg_entropy,
+        # "wrong_format_avg_entropy": wrong_format_avg_entropy,
     }
 
 

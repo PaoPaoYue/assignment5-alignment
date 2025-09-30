@@ -170,20 +170,28 @@ def log_generations(
 
 def analyse_result(ds: ray.data.Dataset) -> dict[str, any]:
 
-    total_count = ds.count()
 
-    # # 条件过滤
-    # correct_answer = ds.filter(expr="answer_reward == 1")
-    # correct_format = ds.filter(expr="format_reward == 1")
-    # wrong_answer = ds.filter(expr="answer_reward != 1")
-    # wrong_format = ds.filter(expr="format_reward != 1")
+    # 初始化计数器
+    total_count = 0
+    correct_answer_count = 0
+    correct_format_count = 0
+    token_lens = []
 
-    # 计算数量
-    correct_answer_count = ds.filter(expr="answer_reward == 1").count()
-    correct_format_count = ds.filter(expr="format_reward == 1").count()
+    # 一次性迭代数据集，按批次处理
+    for batch in ds.iter_batches(batch_size=1000, columns=["answer_reward", "format_reward", "tokens"]):
+        # batch 是一个 dict[str, list]，每个 key 对应一列
+        total_count += len(batch["answer_reward"])
+        
+        # 统计条件
+        correct_answer_count += sum(1 for v in batch["answer_reward"] if v == 1)
+        correct_format_count += sum(1 for v in batch["format_reward"] if v == 1)
+        
+        # 收集 token 长度
+        token_lens.extend(batch["tokens"])
 
     # 计算平均 token 长度
-    avg_len = ds.mean("tokens") or 0
+    avg_len = np.mean(token_lens) if token_lens else 0
+    
     # correct_answer_avg_len = correct_answer.mean("tokens") or 0
     # correct_format_avg_len = correct_format.mean("tokens") or 0
     # wrong_answer_avg_len = wrong_answer.mean("tokens") or 0

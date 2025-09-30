@@ -44,7 +44,7 @@ class TrainParams:
 
     seed: int = 42
 
-    lr: float = 1e-5
+    lr: float = 5e-5
     rollout_batch_size: int = 256
     group_size: int = 8
     train_batch_size: int = 256
@@ -64,8 +64,8 @@ class TrainParams:
     optimizer_beta2: float = 0.95
     optimizer_weight_decay: float = 0.0
 
-    n_grpo_steps: int = 30
-    val_step_freq: int = 30
+    n_grpo_steps: int = 15
+    val_step_freq: int = 5
     epochs_per_rollout_batch: int = 1
 
     def __post_init__(self):
@@ -105,10 +105,10 @@ def train_model(config: dict[any, any]):
         attn_implementation="flash_attention_2",
         trust_remote_code=True,
     )
-    model_state_dict = model.state_dict()
-    # model.load_state_dict(model_state_dict)
+
+    model_state_dict= torch.load(f"{params.ckpt_path}/checkpoint.pt",weights_only=False)
+    model.load_state_dict(model_state_dict)
     model = ray.train.torch.prepare_model(model)
-    # model_state_dict= torch.load(f"{params.ckpt_path}/checkpoint.pt",weights_only=False)
 
     tokenizer = AutoTokenizer.from_pretrained(
         params.model_dir_path, trust_remote_code=True

@@ -162,10 +162,10 @@ def train_model(config: dict[any, any]):
             params,
         )
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            torch.save(model_state_dict, os.path.join(tmpdir, "checkpoint.pt"))
-            checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
-            ray.train.report(metrics=val_metrics, checkpoint=checkpoint)
+        # with tempfile.TemporaryDirectory() as tmpdir:
+        #     torch.save(model_state_dict, os.path.join(tmpdir, "checkpoint.pt"))
+        #     checkpoint = ray.train.Checkpoint.from_directory(tmpdir)
+        ray.train.report(metrics=val_metrics)
 
     ray.get(params.evaluator.close.remote())
     wandb.finish()
